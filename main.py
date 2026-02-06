@@ -13,15 +13,13 @@ def health():
 
 @app.post("/whatsapp/webhook")
 async def whatsapp_webhook(request: Request):
-    form = await request.form()
-    
-    incoming_msg = form.get("Body")
-    from_number = form.get("From")
+    print("🔥 WEBHOOK HIT 🔥")
 
-    print("Message:", incoming_msg)
-    print("From:", from_number)
+    form = await request.form()
+    print("FORM DATA:", dict(form))
 
     response = MessagingResponse()
-    response.message(f"👋 Hola! Recibí tu mensaje: {incoming_msg}")
+    response.message("Webhook received")
 
     return str(response)
+
