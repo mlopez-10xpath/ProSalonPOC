@@ -1,5 +1,4 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
+from fastapi import FastAPI, Request, Response
 from twilio.twiml.messaging_response import MessagingResponse
 
 app = FastAPI()
@@ -11,12 +10,12 @@ async def whatsapp_webhook(request: Request):
     form = await request.form()
     print("FORM DATA:", dict(form))
 
-    incoming_msg = form.get("Body")
+    incoming_msg = form.get("Body", "")
 
-    response = MessagingResponse()
-    response.message(f"👋 Hola! Recibí tu mensaje: {incoming_msg}")
+    twiml = MessagingResponse()
+    twiml.message(f"👋 Hola Manuel, recibí: {incoming_msg}")
 
-    return PlainTextResponse(
-        str(response),
+    return Response(
+        content=str(twiml),
         media_type="application/xml"
     )
