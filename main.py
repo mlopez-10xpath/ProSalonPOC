@@ -1,21 +1,23 @@
-from fastapi import FastAPI, Request, Response
-from twilio.twiml.messaging_response import MessagingResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import PlainTextResponse
+import logging
 
 app = FastAPI()
+logging.basicConfig(level=logging.INFO)
 
 @app.post("/whatsapp/webhook")
 async def whatsapp_webhook(request: Request):
-    print("🔥 WEBHOOK HIT 🔥")
-
     form = await request.form()
-    print("FORM DATA:", dict(form))
 
-    incoming_msg = form.get("Body", "")
+    message = {
+        "from_phone": form.get("WaId"),  # clean phone, no whatsapp:
+        "from_raw": form.get("From"),
+        "profile_name": form.get("ProfileName"),
+        "body": form.get("Body", "").strip(),
+        "message_sid": form.get("MessageSid"),
+    }
 
-    twiml = MessagingResponse()
-    twiml.message(f"👋 Hola Manuel, recibí: {incoming_msg}")
+    logging.info(f"📩 INCOMING MESSAGE: {message}")
 
-    return Response(
-        content=str(twiml),
-        media_type="application/xml"
-    )
+    # ACK fast (important!)
+    return PlainTextResponse("OK", status_code=200)
