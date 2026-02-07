@@ -58,4 +58,4 @@ async def whatsapp_webhook(request: Request):
     # ------------------
     # ACK fast (CRITICAL for Twilio)
     # ------------------
-    return PlainTextResponse("OK", status_code=200)
+    return PlainTextResponse("", status_code=200)
