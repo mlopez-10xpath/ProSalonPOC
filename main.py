@@ -27,6 +27,8 @@ twilio_client = Client(
 # ==========================================================
 # Airtable – Customer lookup helper
 # ==========================================================
+from pyairtable import Api, Table
+
 def find_customer_by_phone(phone: str):
     token = os.environ.get("AIRTABLE_TOKEN")
     base_id = os.environ.get("AIRTABLE_BASE_ID")
