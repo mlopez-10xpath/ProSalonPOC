@@ -36,6 +36,15 @@ def find_customer_by_phone(phone: str):
     base_id = os.environ.get("AIRTABLE_BASE_ID")
     table_name = os.environ.get("AIRTABLE_CUSTOMERS_TABLE")
 
+
+    logging.info(
+    f"Airtable vars present? "
+    f"TOKEN={'yes' if token else 'no'}, "
+    f"BASE={'yes' if base_id else 'no'}, "
+    f"TABLE={'yes' if table_name else 'no'}"
+)
+
+
     if not token or not base_id or not table_name:
         logging.error("❌ Airtable environment variables are missing")
         return None
