@@ -50,6 +50,39 @@ def find_customer_by_phone(phone: str):
         return None
 
     try:
+
+        # ------------------ Debug
+api = Api(token)
+
+        # 🔍 DEBUG 1: Can we see the base?
+        bases = api.bases()
+        logging.info(f"📦 Airtable bases visible to token: {[b['id'] for b in bases]}")
+
+        if base_id not in [b["id"] for b in bases]:
+            logging.error("🚫 Token does NOT have access to this base")
+            return None
+
+        # 🔍 DEBUG 2: Try listing tables via direct call
+        table = Table(token, base_id, table_name)
+        logging.info(f"📋 Querying table '{table_name}' in base '{base_id}'")
+
+        formula = f"{{id}}='{phone}'"
+        records = table.all(formula=formula)
+
+        logging.info(f"📄 Airtable returned {len(records)} records")
+
+        if not records:
+            return None
+
+        return records[0]["fields"]
+
+    except Exception as e:
+        logging.exception("🔥 Error querying Airtable")
+        return None
+        # ------------------ End Debug
+        
+        
+        
         table = Table(token, base_id, table_name)
 
         # Airtable formula example: {id}='5213314179343'
