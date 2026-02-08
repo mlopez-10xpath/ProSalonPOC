@@ -28,44 +28,47 @@ twilio_client = Client(
 # Airtable – Customer lookup helper
 # ==========================================================
 def find_customer_by_phone(phone: str):
-    """
-    Looks up a customer in Airtable by phone number.
-    Phone is stored in Airtable field called 'id'
-    """
     token = os.environ.get("AIRTABLE_TOKEN")
     base_id = os.environ.get("AIRTABLE_BASE_ID")
     table_name = os.environ.get("AIRTABLE_CUSTOMERS_TABLE")
 
-
     logging.info(
-    f"Airtable vars present? "
-    f"TOKEN={'yes' if token else 'no'}, "
-    f"BASE={'yes' if base_id else 'no'}, "
-    f"TABLE={'yes' if table_name else 'no'}"
-)
-
+        f"Airtable vars present? "
+        f"TOKEN={'yes' if token else 'no'}, "
+        f"BASE={'yes' if base_id else 'no'}, "
+        f"TABLE={'yes' if table_name else 'no'}"
+    )
 
     if not token or not base_id or not table_name:
         logging.error("❌ Airtable environment variables are missing")
         return None
 
     try:
-        
-        table = Table(token, base_id, table_name)
+        api = Api(token)
 
-        # Airtable formula example: {id}='5213314179343'
-        formula = f"{{id}}='{phone}'"
+        # 🔍 DEBUG 1: Can we see the base?
+        bases = api.bases()
+        logging.info(f"📦 Airtable bases visible to token: {[b['id'] for b in bases]}")
 
-        records = table.all(formula=formula)
-
-        if not records:
-            logging.info(f"🔍 No customer found for phone {phone}")
+        if base_id not in [b["id"] for b in bases]:
+            logging.error("🚫 Token does NOT have access to this base")
             return None
 
-        logging.info(f"🔎 Airtable match found for phone {phone}")
+        # 🔍 DEBUG 2: Try listing tables via direct call
+        table = Table(token, base_id, table_name)
+        logging.info(f"📋 Querying table '{table_name}' in base '{base_id}'")
+
+        formula = f"{{id}}='{phone}'"
+        records = table.all(formula=formula)
+
+        logging.info(f"📄 Airtable returned {len(records)} records")
+
+        if not records:
+            return None
+
         return records[0]["fields"]
 
-    except Exception:
+    except Exception as e:
         logging.exception("🔥 Error querying Airtable")
         return None
 
