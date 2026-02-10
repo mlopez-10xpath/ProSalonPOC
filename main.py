@@ -36,57 +36,10 @@ supabase = create_client(url, key)
 
 
 # ==========================================================
-# Airtable – Customer lookup helper
-# ==========================================================
-import os
-import logging
-from pyairtable import Api
-
-
-def find_customer_by_phone(phone: str):
-    token = os.environ.get("AIRTABLE_TOKEN")
-    base_id = os.environ.get("AIRTABLE_BASE_ID")
-    table_name = os.environ.get("AIRTABLE_CUSTOMERS_TABLE")
-
-    logging.info(
-        f"Airtable vars present? "
-        f"TOKEN={'yes' if token else 'no'}, "
-        f"BASE={'yes' if base_id else 'no'}, "
-        f"TABLE={'yes' if table_name else 'no'}"
-    )
-
-    if not token or not base_id or not table_name:
-        logging.error("❌ Airtable environment variables are missing")
-        return None
-
-    try:
-        api = Api(token)
-
-        # ✅ Direct table access (NO metadata calls)
-        table = api.table(base_id, table_name)
-        logging.info(f"📋 Querying table '{table_name}' in base '{base_id}'")
-
-        # Airtable formula — field name is literally "id"
-        formula = f"{{id}}='{phone}'"
-        logging.info(f"🔍 Airtable formula: {formula}")
-
-        records = table.all(formula=formula)
-        logging.info(f"📄 Airtable returned {len(records)} records")
-
-        if not records:
-            return None
-
-        return records[0]["fields"]
-
-    except Exception:
-        logging.exception("🔥 Error querying Airtable")
-        return None
-
-# ==========================================================
 # SupaBase – Customer lookup 
 # ==========================================================
 
-def sb_find_customer_by_phone(phone: str) -> dict | None:
+def find_customer_by_phone(phone: str) -> dict | None:
     """
     Find a customer by phone number.
     Returns customer dict or None if not found.
@@ -138,7 +91,7 @@ async def whatsapp_webhook(request: Request):
     # ------------------------------------------------------
     customer = None
     if message["from_phone"]:
-        customer = sb_find_customer_by_phone(message["from_phone"])
+        customer = find_customer_by_phone(message["from_phone"])
 
     # Decide response based on customer existence
     if customer:
