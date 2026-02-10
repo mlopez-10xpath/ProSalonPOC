@@ -94,7 +94,7 @@ def sb_find_customer_by_phone(phone: str) -> dict | None:
 
     response = (
         supabase
-        .table("customers")
+        .table("Customers")
         .select("*")
         .eq("phone", phone)
         .limit(1)
