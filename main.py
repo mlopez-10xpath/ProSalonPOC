@@ -101,9 +101,6 @@ def sb_find_customer_by_phone(phone: str) -> dict | None:
         .execute()
     )
 
-    if response.error:
-        raise Exception(f"Supabase error: {response.error}")
-
     if not response.data:
         return None
 
