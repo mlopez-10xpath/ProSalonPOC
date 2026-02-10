@@ -13,7 +13,7 @@ Your task:
 - Decide the next system action
 
 Rules:
-- Incomming messages most probably will be in Mexican Spanish
+- Incomming messages could probably be in Mexican Spanish
 - Return ONLY valid JSON
 - No explanations
 - If unsure, intent = "unknown"
