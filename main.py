@@ -4,6 +4,7 @@ import logging
 import os
 from twilio.rest import Client
 from pyairtable import Table
+from supabase import create_client
 
 # ==========================================================
 # App & logging
@@ -23,6 +24,16 @@ twilio_client = Client(
     TWILIO_ACCOUNT_SID,
     TWILIO_AUTH_TOKEN
 )
+
+# ==========================================================
+# Supabase
+# Database for 
+# ==========================================================
+url = os.environ["SUPABASE_URL"]
+key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+
+supabase = create_client(url, key)
+
 
 # ==========================================================
 # Airtable – Customer lookup helper
@@ -71,6 +82,32 @@ def find_customer_by_phone(phone: str):
         logging.exception("🔥 Error querying Airtable")
         return None
 
+# ==========================================================
+# SupaBase – Customer lookup 
+# ==========================================================
+
+def find_customer_by_phone(phone: str) -> dict | None:
+    """
+    Find a customer by phone number.
+    Returns customer dict or None if not found.
+    """
+
+    response = (
+        supabase
+        .table("customers")
+        .select("*")
+        .eq("phone", phone)
+        .limit(1)
+        .execute()
+    )
+
+    if response.error:
+        raise Exception(f"Supabase error: {response.error}")
+
+    if not response.data:
+        return None
+
+    return response.data[0]
 
 
 # ==========================================================
@@ -104,7 +141,7 @@ async def whatsapp_webhook(request: Request):
     # ------------------------------------------------------
     customer = None
     if message["from_phone"]:
-        customer = find_customer_by_phone(message["from_phone"])
+        customer = sb_find_customer_by_phone(message["from_phone"])
 
     # Decide response based on customer existence
     if customer:
