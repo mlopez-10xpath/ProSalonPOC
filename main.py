@@ -91,7 +91,7 @@ def sb_find_customer_by_phone(phone: str) -> dict | None:
     Find a customer by phone number.
     Returns customer dict or None if not found.
     """
-
+    logging.info(f"Supabase '{phone}' lookup ")
     response = (
         supabase
         .table("Customers")
