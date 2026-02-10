@@ -1,29 +1,34 @@
 import json
-from openai import OpenAI
 import os
+from openai import OpenAI
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-INTENT_SYSTEM_PROMPT = """
-You are an intent classification engine for a WhatsApp customer support assistant.
+SYSTEM_PROMPT = """
+You are an intent classification engine for a distributor customer support assistant.
 
-Your job:
-- Identify the user's intent
+Your task:
+- Identify the customer's intent
 - Extract relevant entities
-- Decide the next logical action
+- Decide the next system action
 
 Rules:
-- Messages most probably will be in Mexican Spanish
+- Incomming messages most probably will be in Mexican Spanish
 - Return ONLY valid JSON
-- Do NOT include explanations
-- If unsure, use intent = "unknown"
+- No explanations
+- If unsure, intent = "unknown"
 
 Possible intents:
 - greeting
-- create_order
+- place_order
 - ask_prices
+- ask_promotions
 - track_order
 - unknown
+
+Entities:
+- products: list of { sku, quantity }
+- order_id: string or null
 
 JSON format:
 {
@@ -44,15 +49,13 @@ def analyze_intent(message_text: str, context: dict | None = None) -> dict:
         model="gpt-4o-mini",
         temperature=0.2,
         messages=[
-            {"role": "system", "content": INTENT_SYSTEM_PROMPT},
+            {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": json.dumps(payload)}
         ]
     )
 
-    content = response.choices[0].message.content
-
     try:
-        return json.loads(content)
+        return json.loads(response.choices[0].message.content)
     except json.JSONDecodeError:
         return {
             "intent": "unknown",
