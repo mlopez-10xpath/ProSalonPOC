@@ -5,6 +5,7 @@ import os
 from twilio.rest import Client
 from pyairtable import Table
 from supabase import create_client
+from db import find_customer_by_phone
 
 # ==========================================================
 # App & logging
