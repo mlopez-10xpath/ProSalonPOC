@@ -25,39 +25,7 @@ twilio_client = Client(
     TWILIO_AUTH_TOKEN
 )
 
-# ==========================================================
-# Supabase
-# Database for 
-# ==========================================================
-url = os.environ["SUPABASE_URL"]
-key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 
-supabase = create_client(url, key)
-
-
-# ==========================================================
-# SupaBase – Customer lookup 
-# ==========================================================
-
-def find_customer_by_phone(phone: str) -> dict | None:
-    """
-    Find a customer by phone number.
-    Returns customer dict or None if not found.
-    """
-    logging.info(f"Supabase '{phone}' lookup ")
-    response = (
-        supabase
-        .table("customers")
-        .select("*")
-        .eq("phone", phone)
-        .limit(1)
-        .execute()
-    )
-
-    if not response.data:
-        return None
-
-    return response.data[0]
 
 
 # ==========================================================
