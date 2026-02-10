@@ -86,7 +86,7 @@ def find_customer_by_phone(phone: str):
 # SupaBase – Customer lookup 
 # ==========================================================
 
-def find_customer_by_phone(phone: str) -> dict | None:
+def sb_find_customer_by_phone(phone: str) -> dict | None:
     """
     Find a customer by phone number.
     Returns customer dict or None if not found.
