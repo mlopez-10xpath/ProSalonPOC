@@ -143,7 +143,7 @@ async def whatsapp_webhook(request: Request):
     # Decide response based on customer existence
     if customer:
         # Known customer
-        customer_name = customer.get("name", message["profile_name"])
+        customer_name = customer.get("greeting", message["profile_name"])
 
         reply_text = (
             f"Hola {customer_name} 👋\n"
