@@ -119,7 +119,7 @@ def get_product_by_name_or_sku(search_term: str):
         .table("products")
         .select("*")
         .or_(f"product.ilike.%{search_term}%,sku.ilike.%{search_term}%")
-        .limit(1)
+        .limit(100)
         .execute()
     )
 
