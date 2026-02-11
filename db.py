@@ -116,7 +116,7 @@ def upsert_conversation_state(
 def get_product_by_name_or_sku(search_term: str):
     response = (
         supabase
-        .table("product")
+        .table("products")
         .select("*")
         .or_(f"name.ilike.%{search_term}%,sku.ilike.%{search_term}%")
         .limit(1)
