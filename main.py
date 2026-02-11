@@ -107,7 +107,7 @@ async def whatsapp_webhook(request: Request):
     # STEP 3 – Known customer flow
     # ------------------------------------------------------
 
-    customer_id = customer["id"]  # Make sure your customers table has this
+    customer_id = customer["customer_id"]  # Make sure your customers table has this
     greeting_name = customer.get("greeting") or message["profile_name"]
 
     logging.info("🟢 Known customer flow")
