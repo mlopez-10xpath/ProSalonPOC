@@ -26,7 +26,7 @@ def handle_intent(intent_data: dict, state: dict | None) -> str:
         price = product.get("price")
 
         return (
-            f"El precio de *{product['name']}* es "
+            f"El precio de *{product['product']}* es "
             f"${price}."
         )
     if intent == "ask_promotions":
