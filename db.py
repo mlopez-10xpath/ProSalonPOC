@@ -1,6 +1,6 @@
 import logging
 import os
-
+from supabase import create_client
 
 # ==========================================================
 # Supabase
