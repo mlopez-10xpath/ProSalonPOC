@@ -1,3 +1,7 @@
+import logging
+import os
+
+
 # ==========================================================
 # Supabase
 # Database for 
