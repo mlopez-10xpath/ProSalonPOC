@@ -124,3 +124,28 @@ def get_product_by_name_or_sku(search_term: str):
     )
 
     return response.data[0] if response.data else None
+
+
+# ==========================================================
+# SupaBase – Fetch All Products (for intelligent matching)
+# ==========================================================
+def get_all_products(limit: int = 500):
+    """
+    Fetch a batch of products for fuzzy matching.
+    Increase limit if your catalog grows.
+    """
+    try:
+        response = (
+            supabase
+            .table("products")
+            .select("*")
+            .limit(limit)
+            .execute()
+        )
+
+        return response.data or []
+
+    except Exception:
+        logging.exception("Error fetching products")
+        return []
+
