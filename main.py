@@ -1,11 +1,27 @@
+# ==========================================================
+# External Libraries
+# ==========================================================
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
+from twilio.rest import Client
+from supabase import create_client
+# ==========================================================
+# Libraries
+# ==========================================================
 import logging
 import os
-from twilio.rest import Client
-from pyairtable import Table
-from supabase import create_client
-from db import find_customer_by_phone
+# ==========================================================
+# User defined functions
+# ==========================================================
+from ai import analyze_intent
+from flows import handle_intent
+from db import (
+    find_customer_by_phone,
+    get_conversation_state,
+    upsert_conversation_state,
+    save_message
+)
+
 
 # ==========================================================
 # App & logging
@@ -56,28 +72,16 @@ async def whatsapp_webhook(request: Request):
     logging.info(f"📩 INCOMING MESSAGE: {message}")
 
     # ------------------------------------------------------
-    # STEP 6 – Customer-aware logic
+    # STEP 1 – Customer Lookup
     # ------------------------------------------------------
     customer = None
     if message["from_phone"]:
         customer = find_customer_by_phone(message["from_phone"])
 
-    # Decide response based on customer existence
-    if customer:
-        # Known customer
-        customer_name = customer.get("greeting", message["profile_name"])
-
-        reply_text = (
-            f"Hola {customer_name} 👋\n"
-            f"Gracias por escribirnos.\n\n"
-            f"Recibimos tu mensaje:\n"
-            f"“{message['body']}”"
-        )
-
-        logging.info("🟢 Known customer flow")
-
-    else:
-        # Unknown customer
+    # ------------------------------------------------------
+    # STEP 2 – Unknown customer flow
+    # ------------------------------------------------------
+    if not customer:
         reply_text = (
             "Hola 👋\n"
             "Gracias por escribirnos.\n\n"
@@ -86,6 +90,71 @@ async def whatsapp_webhook(request: Request):
         )
 
         logging.info("🔵 Unknown customer flow")
+
+        # Send reply immediately
+        try:
+            twilio_client.messages.create(
+                from_=TWILIO_WHATSAPP_FROM,
+                to=message["from_raw"],
+                body=reply_text
+            )
+        except Exception as e:
+            logging.error(f"❌ Error sending WhatsApp reply: {e}")
+
+        return PlainTextResponse("", status_code=200)
+
+    # ------------------------------------------------------
+    # STEP 3 – Known customer flow
+    # ------------------------------------------------------
+
+    customer_id = customer["id"]  # Make sure your customers table has this
+    greeting_name = customer.get("greeting") or message["profile_name"]
+
+    logging.info("🟢 Known customer flow")
+
+    # 🔹 Get conversation state
+    state = get_conversation_state(customer_id)
+
+    # 🔹 Analyze intent with ChatGPT
+    intent_data = analyze_intent(
+        message_text=message["body"],
+        context=state["context"] if state else None
+    )
+
+    logging.info(f"🤖 Intent detected: {intent_data}")
+
+    # 🔹 Save inbound message
+    save_message(
+        customer_id=customer_id,
+        direction="inbound",
+        body=message["body"],
+        intent=intent_data.get("intent")
+    )
+
+    # 🔹 Handle intent (business logic)
+    system_reply = handle_intent(intent_data, state)
+
+    # 🔹 Compose final response (include greeting personalization)
+    reply_text = (
+        f"Hola {greeting_name} 👋\n\n"
+        f"{system_reply}"
+    )
+
+    # 🔹 Update conversation state
+    upsert_conversation_state(
+        customer_id=customer_id,
+        current_flow=intent_data.get("intent"),
+        current_step=intent_data.get("next_action"),
+        context=intent_data.get("entities", {})
+    )
+
+    # 🔹 Save outbound message
+    save_message(
+        customer_id=customer_id,
+        direction="outbound",
+        body=reply_text,
+        intent=intent_data.get("intent")
+    )
 
     # ------------------------------------------------------
     # Send WhatsApp response (ONLY ONCE)
