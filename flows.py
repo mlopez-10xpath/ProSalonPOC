@@ -15,7 +15,7 @@ def handle_intent(intent_data: dict, state: dict | None) -> str:
         if not product_name:
             return "Claro 😊 ¿De qué producto necesitas el precio?"
 
-        product = get_product_by_name(product_name)
+        product = get_product_by_name_or_sku(product_name)
 
         if not product:
             return (
