@@ -27,6 +27,7 @@ Possible intents:
 - unknown
 
 Entities:
+- product_name: string or null
 - products: list of { sku, quantity }
 - order_id: string or null
 
