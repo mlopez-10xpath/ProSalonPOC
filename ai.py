@@ -64,3 +64,30 @@ def analyze_intent(message_text: str, context: dict | None = None) -> dict:
             "entities": {},
             "next_action": "fallback"
         }
+
+
+def generate_ai_response(system_prompt: str, user_message: str, context_data: str):
+    """
+    Sends full reasoning task to GPT.
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        temperature=0.2,
+        messages=[
+            {
+                "role": "system",
+                "content": system_prompt
+            },
+            {
+                "role": "system",
+                "content": f"Relevant data:\n{context_data}"
+            },
+            {
+                "role": "user",
+                "content": user_message
+            }
+        ]
+    )
+
+    return response.choices[0].message.content
