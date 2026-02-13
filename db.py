@@ -149,3 +149,27 @@ def get_all_products(limit: int = 500):
         logging.exception("Error fetching products")
         return []
 
+# ==========================================================
+# Fetch AI Flow Configuration
+# ==========================================================
+def get_ai_flow(intent: str):
+    try:
+        response = (
+            supabase
+            .table("ai_flows")
+            .select("*")
+            .eq("intent", intent)
+            .eq("active", True)
+            .limit(1)
+            .execute()
+        )
+
+        if response.data:
+            return response.data[0]
+
+        return None
+
+    except Exception:
+        logging.exception("Error fetching AI flow config")
+        return None
+
