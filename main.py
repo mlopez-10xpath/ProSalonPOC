@@ -137,32 +137,32 @@ async def whatsapp_webhook(request: Request):
     )
 
     # 🔹 Handle intent (business logic)
-        intent = intent_data.get("intent")        
-        flow_config = get_ai_flow(intent)
-        
-        if not flow_config:
-            system_reply = "No pude procesar tu solicitud."
-        else:
+    intent = intent_data.get("intent")        
+    flow_config = get_ai_flow(intent)
     
-            # Inject product catalog only if pricing related
-            context_data = ""    
-            if intent == "ask_prices":
-                products = get_all_products()
-                # Send compact product catalog
-                context_data = json.dumps([
-                    {
-                        "name": p["product"],
-                        "sku": p.get("sku"),
-                        "price": p["price"]
-                    }
-                    for p in products
-                ])
-        
-            system_reply = generate_ai_response(
-                system_prompt=flow_config["system_prompt"],
-                user_message=message["body"],
-                context_data=context_data
-            )
+    if not flow_config:
+        system_reply = "No pude procesar tu solicitud."
+    else:
+
+        # Inject product catalog only if pricing related
+        context_data = ""    
+        if intent == "ask_prices":
+            products = get_all_products()
+            # Send compact product catalog
+            context_data = json.dumps([
+                {
+                    "name": p["product"],
+                    "sku": p.get("sku"),
+                    "price": p["price"]
+                }
+                for p in products
+            ])
+    
+        system_reply = generate_ai_response(
+            system_prompt=flow_config["system_prompt"],
+            user_message=message["body"],
+            context_data=context_data
+        )
 
 
     # 🔹 Compose final response (include greeting personalization)
