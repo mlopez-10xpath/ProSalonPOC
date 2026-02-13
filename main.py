@@ -10,18 +10,23 @@ from supabase import create_client
 # ==========================================================
 import logging
 import os
+import json
 # ==========================================================
 # User defined functions
 # ==========================================================
-from ai import analyze_intent
+from ai import ( 
+    analyze_intent,
+    generate_ai_response
+)
 from flows import handle_intent
 from db import (
     find_customer_by_phone,
     get_conversation_state,
     upsert_conversation_state,
-    save_message
+    save_message,
+    get_ai_flow, 
+    get_all_products
 )
-
 
 # ==========================================================
 # App & logging
@@ -132,7 +137,33 @@ async def whatsapp_webhook(request: Request):
     )
 
     # 🔹 Handle intent (business logic)
-    system_reply = handle_intent(intent_data, state)
+        intent = intent_data.get("intent")        
+        flow_config = get_ai_flow(intent)
+        
+        if not flow_config:
+            system_reply = "No pude procesar tu solicitud."
+        else:
+    
+            # Inject product catalog only if pricing related
+            context_data = ""    
+            if intent == "ask_prices":
+                products = get_all_products()
+                # Send compact product catalog
+                context_data = json.dumps([
+                    {
+                        "name": p["product"],
+                        "sku": p.get("sku"),
+                        "price": p["price"]
+                    }
+                    for p in products
+                ])
+        
+            system_reply = generate_ai_response(
+                system_prompt=flow_config["system_prompt"],
+                user_message=message["body"],
+                context_data=context_data
+            )
+
 
     # 🔹 Compose final response (include greeting personalization)
     reply_text = (
