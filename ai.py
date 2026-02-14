@@ -25,6 +25,7 @@ Possible intents:
 - ask_prices
 - ask_promotions
 - track_order
+- product_information
 - unknown
 
 Entities:
