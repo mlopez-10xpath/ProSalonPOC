@@ -1,7 +1,8 @@
 import logging
 import os
 from supabase import create_client
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
+from typing import List, Dict
 
 
 # ==========================================================
@@ -204,18 +205,23 @@ def get_last_message_time(customer_id: str):
 # ==========================================================
 # Get active promotions
 # ==========================================================
-def get_active_promotions():
-    query = """
-        select *
-        from promotions
-        where is_active = true
-        and (start_date is null or start_date <= current_date)
-        and (end_date is null or end_date >= current_date)
-    """
-    
-    result = supabase.rpc("sql", {"query": query}).execute()
-    return result.data if result.data else []
+def get_active_promotions() -> List[Dict]:
+    today = date.today().isoformat()
 
+    response = (
+        supabase
+        .table("promotions")
+        .select("*")
+        .eq("is_active", True)
+        .or_(f"start_date.is.null,start_date.lte.{today}")
+        .or_(f"end_date.is.null,end_date.gte.{today}")
+        .execute()
+    )
+
+    if response.data and len(response.data) > 0:
+        return response.data
+
+    return []
 # ==========================================================
 # Get detail product info
 # ==========================================================
