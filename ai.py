@@ -74,49 +74,47 @@ def generate_ai_response(
     last_message_time=None,
     distributor_name: str | None = None
 ):
-      """
-      Sends full reasoning task to GPT with dynamic greeting intelligence.
-      """
-  
-      greeting_type, time_of_day = build_greeting_context(last_message_time)
-  
-      greeting_context = f"""
-  Greeting rules:
-  - greeting_type: {greeting_type}
-  - time_of_day: {time_of_day}
-  - distributor_name: {distributor_name}
-  
-  Instructions:
-  - If greeting_type is "first_ever_message", greet warmly.
-  - If "new_day", greet briefly.
-  - If "reconnection", greet warmly and acknowledge time gap.
-  - If "continuation", DO NOT greet.
-  - Use appropriate Spanish greeting:
-      - morning → Buenos días
-      - afternoon → Buenas tardes
-      - evening → Buenas noches
-  - Keep greeting short and natural.
-  - Never greet twice in same day continuation.
-  """
-  
-      full_system_prompt = "\n\n".join([
-          base_system_prompt,
-          greeting_context
-      ])
-  
-      response = client.chat.completions.create(
-          model="gpt-4o-mini",
-          temperature=0.2,
-          messages=[
-              {"role": "system", "content": full_system_prompt},
-              {"role": "system", "content": f"Relevant data:\n{context_data}"},
-              {"role": "user", "content": user_message}
-          ]
-      )
+    """
+    Sends full reasoning task to GPT with dynamic greeting intelligence.
+    """
+
+    greeting_type, time_of_day = build_greeting_context(last_message_time)
+
+    greeting_context = f"""
+Greeting rules:
+- greeting_type: {greeting_type}
+- time_of_day: {time_of_day}
+- distributor_name: {distributor_name}
+
+Instructions:
+- If greeting_type is "first_ever_message", greet warmly.
+- If "new_day", greet briefly.
+- If "reconnection", greet warmly and acknowledge time gap.
+- If "continuation", DO NOT greet.
+- Use appropriate Spanish greeting:
+    - morning → Buenos días
+    - afternoon → Buenas tardes
+    - evening → Buenas noches
+- Keep greeting short and natural.
+- Never greet twice in same day continuation.
+"""
+
+    full_system_prompt = "\n\n".join([
+        base_system_prompt,
+        greeting_context
+    ])
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        temperature=0.2,
+        messages=[
+            {"role": "system", "content": full_system_prompt},
+            {"role": "system", "content": f"Relevant data:\n{context_data}"},
+            {"role": "user", "content": user_message}
+        ]
+    )
 
     return response.choices[0].message.content
-
-
 
 
 def build_greeting_context(last_message_time):
