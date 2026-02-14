@@ -186,6 +186,7 @@ def get_last_message_time(customer_id: str):
         .table("messages")
         .select("created_at")
         .eq("customer_id", customer_id)
+        .eq("direction", "inbound")
         .order("created_at", desc=True)
         .limit(1)
         .execute()
