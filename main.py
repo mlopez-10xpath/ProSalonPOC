@@ -27,7 +27,9 @@ from db import (
     upsert_conversation_state,
     save_message,
     get_ai_flow, 
-    get_all_products
+    get_all_products,
+    get_detailed_products,
+    get_active_promotions
 )
 
 # ==========================================================
@@ -149,7 +151,11 @@ async def whatsapp_webhook(request: Request):
     else:
 
         # Inject product catalog only if pricing related
-        context_data = ""    
+        context_data = ""
+
+        # ==============================
+        # PRICING INTENT
+        # ==============================
         if intent == "ask_prices":
             products = get_all_products()
             # Send compact product catalog
@@ -161,6 +167,30 @@ async def whatsapp_webhook(request: Request):
                 }
                 for p in products
             ])
+
+        # ==============================
+        # PROMOTIONS INTENT
+        # ==============================
+        elif intent == "ask_promotions":
+            promotions = get_active_promotions()
+
+            context_data = json.dumps({
+                "active_promotions": promotions
+            })
+    
+        # ==============================
+        # PRODUCT INFORMATION INTENT
+        # ==============================
+        elif intent == "product_info":
+            detailed_products = get_detailed_products()
+    
+            context_data = json.dumps({
+                "products": detailed_products
+            })
+    
+        # ==============================
+        # GENERATE RESPONSE
+        # ==============================
     
         system_reply = generate_ai_response(
             base_system_prompt=flow_config["system_prompt"],
