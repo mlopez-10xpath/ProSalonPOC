@@ -176,14 +176,16 @@ def get_ai_flow(intent: str):
         return None
         
 # ==========================================================
-# Get last time message from conversation
+# Get last message time for a customer
 # ==========================================================
-def get_last_message_time(conversation_id: str):
+from datetime import datetime
+
+def get_last_message_time(customer_id: str):
     response = (
         supabase
         .table("messages")
         .select("created_at")
-        .eq("conversation_id", conversation_id)
+        .eq("customer_id", customer_id)
         .order("created_at", desc=True)
         .limit(1)
         .execute()
@@ -192,7 +194,6 @@ def get_last_message_time(conversation_id: str):
     if response.data and len(response.data) > 0:
         created_at_str = response.data[0]["created_at"]
 
-        # Supabase returns ISO format with Z
         return datetime.fromisoformat(
             created_at_str.replace("Z", "+00:00")
         )
