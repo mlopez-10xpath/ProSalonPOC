@@ -200,3 +200,37 @@ def get_last_message_time(customer_id: str):
         )
 
     return None
+
+# ==========================================================
+# Get active promotions
+# ==========================================================
+def get_active_promotions():
+    query = """
+        select *
+        from promotions
+        where is_active = true
+        and (start_date is null or start_date <= current_date)
+        and (end_date is null or end_date >= current_date)
+    """
+    
+    result = supabase.rpc("sql", {"query": query}).execute()
+    return result.data if result.data else []
+
+# ==========================================================
+# Get detail product info
+# ==========================================================
+def get_detailed_products():
+    products = get_all_products()
+
+    return [
+        {
+            "name": p["product"],
+            "sku": p.get("sku"),
+            "line": p.get("line"),
+            "category": p.get("category"),
+            "description": p.get("description"),
+            "size": p.get("size"),
+            "price": p.get("price")
+        }
+        for p in products
+    ]
