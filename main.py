@@ -166,10 +166,7 @@ async def whatsapp_webhook(request: Request):
 
 
     # 🔹 Compose final response (include greeting personalization)
-    reply_text = (
-        f"Hola {greeting_name} 👋\n\n"
-        f"{system_reply}"
-    )
+    reply_text = system_reply 
 
     # 🔹 Update conversation state
     upsert_conversation_state(
