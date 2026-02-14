@@ -1,6 +1,8 @@
 import logging
 import os
 from supabase import create_client
+from datetime import datetime, timezone, timedelta
+
 
 # ==========================================================
 # Supabase
@@ -172,4 +174,27 @@ def get_ai_flow(intent: str):
     except Exception:
         logging.exception("Error fetching AI flow config")
         return None
+        
+# ==========================================================
+# Get last time message from conversation
+# ==========================================================
+def get_last_message_time(conversation_id: str):
+    response = (
+        supabase
+        .table("messages")
+        .select("created_at")
+        .eq("conversation_id", conversation_id)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
 
+    if response.data and len(response.data) > 0:
+        created_at_str = response.data[0]["created_at"]
+
+        # Supabase returns ISO format with Z
+        return datetime.fromisoformat(
+            created_at_str.replace("Z", "+00:00")
+        )
+
+    return None
