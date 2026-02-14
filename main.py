@@ -116,54 +116,13 @@ async def whatsapp_webhook(request: Request):
 
     customer_id = customer["customer_id"]  # Make sure your customers table has this
     greeting_name = customer.get("greeting") or message["profile_name"]
+    last_message_time = get_last_message_time(customer_id)
 
     logging.info("🟢 Known customer flow")
 
     # 🔹 Get conversation state
     state = get_conversation_state(customer_id)
-    now = datetime.now(timezone.utc)
-    last_message_time = get_last_message_time(conversation_id)
-
-    if not last_message_time:
-        greeting_type = "first_ever_message"
-    else:
-        time_diff = now - last_message_time
-        
-        if time_diff > timedelta(days=4):
-            greeting_type = "reconnection"
-        elif last_message_time.date() != now.date():
-            greeting_type = "new_day"
-        else:
-            greeting_type = "continuation"
-
-    local_hour = now.hour  # adjust if you use timezone offset
-    if 5 <= local_hour < 12:
-        time_of_day = "morning"
-    elif 12 <= local_hour < 19:
-        time_of_day = "afternoon"
-    else:
-        time_of_day = "evening"
-
-    system_context = f"""
-    You are a helpful assistant for distributors.
     
-    Greeting rules:
-    - greeting_type: {greeting_type}
-    - time_of_day: {time_of_day}
-    
-    Instructions:
-    - If greeting_type is "first_ever_message", greet warmly.
-    - If "new_day", greet briefly.
-    - If "reconnection", greet warmly and acknowledge time gap.
-    - If "continuation", DO NOT greet.
-    - Use appropriate Spanish greeting based on time_of_day:
-        - morning → "Buenos días"
-        - afternoon → "Buenas tardes"
-        - evening → "Buenas noches"
-    - Keep greetings short and natural.
-    - Never repeat greeting inside same day continuation.
-    """
-
     
     # 🔹 Analyze intent with ChatGPT
     intent_data = analyze_intent(
@@ -204,11 +163,12 @@ async def whatsapp_webhook(request: Request):
             ])
     
         system_reply = generate_ai_response(
-            system_prompt=flow_config["system_prompt"],
+            base_system_prompt=flow_config["system_prompt"],
             user_message=message["body"],
-            context_data=context_data
+            context_data=context_data,
+            last_message_time=last_message_time,
+            distributor_name=greeting_name
         )
-
 
     # 🔹 Compose final response (include greeting personalization)
     reply_text = system_reply 
