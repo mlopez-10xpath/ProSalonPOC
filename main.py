@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
 from twilio.rest import Client
 from supabase import create_client
+from datetime import datetime, timezone, timedelta
 # ==========================================================
 # Libraries
 # ==========================================================
@@ -22,6 +23,7 @@ from flows import handle_intent
 from db import (
     find_customer_by_phone,
     get_conversation_state,
+    get_last_message_time,
     upsert_conversation_state,
     save_message,
     get_ai_flow, 
@@ -119,13 +121,56 @@ async def whatsapp_webhook(request: Request):
 
     # 🔹 Get conversation state
     state = get_conversation_state(customer_id)
+    now = datetime.now(timezone.utc)
+    last_message_time = get_last_message_time(conversation_id)
 
+    if not last_message_time:
+        greeting_type = "first_ever_message"
+    else:
+        time_diff = now - last_message_time
+        
+        if time_diff > timedelta(days=4):
+            greeting_type = "reconnection"
+        elif last_message_time.date() != now.date():
+            greeting_type = "new_day"
+        else:
+            greeting_type = "continuation"
+
+    local_hour = now.hour  # adjust if you use timezone offset
+    if 5 <= local_hour < 12:
+        time_of_day = "morning"
+    elif 12 <= local_hour < 19:
+        time_of_day = "afternoon"
+    else:
+        time_of_day = "evening"
+
+    system_context = f"""
+    You are a helpful assistant for distributors.
+    
+    Greeting rules:
+    - greeting_type: {greeting_type}
+    - time_of_day: {time_of_day}
+    
+    Instructions:
+    - If greeting_type is "first_ever_message", greet warmly.
+    - If "new_day", greet briefly.
+    - If "reconnection", greet warmly and acknowledge time gap.
+    - If "continuation", DO NOT greet.
+    - Use appropriate Spanish greeting based on time_of_day:
+        - morning → "Buenos días"
+        - afternoon → "Buenas tardes"
+        - evening → "Buenas noches"
+    - Keep greetings short and natural.
+    - Never repeat greeting inside same day continuation.
+    """
+
+    
     # 🔹 Analyze intent with ChatGPT
     intent_data = analyze_intent(
         message_text=message["body"],
         context=state["context"] if state else None
     )
-
+    
     logging.info(f"🤖 Intent detected: {intent_data}")
 
     # 🔹 Save inbound message
