@@ -74,13 +74,15 @@ def generate_ai_response(
     user_message: str,
     context_data: str,
     last_message_time=None,
-    distributor_name: str | None = None
+    distributor_name: str | None = None,
+    customer_timezone: str
 ):
     """
     Sends full reasoning task to GPT with dynamic greeting intelligence.
     """
 
-    greeting_type, time_of_day = build_greeting_context(last_message_time)
+    greeting_type, time_of_day = build_greeting_context(last_message_time,
+                                                       customer_timezone)
 
     greeting_context = f"""
 Greeting rules:
@@ -119,16 +121,12 @@ Instructions:
     return response.choices[0].message.content
 
 
-def build_greeting_context(last_message_time):
+def build_greeting_context(last_message_time,customer_timezone):
 
     # --------------------------------------------------
     # 1️⃣ Determine timezone
     # --------------------------------------------------
-    if customer and customer.get("timezone"):
-        customer_timezone = customer["timezone"]
-    else:
-        # Unknown prospect → assume Mexico City
-        customer_timezone = "America/Mexico_City"
+
 
     # --------------------------------------------------
     # 2️⃣ Convert UTC to customer local time
