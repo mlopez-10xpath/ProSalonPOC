@@ -2,6 +2,7 @@ import json
 import os
 from openai import OpenAI
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -119,13 +120,34 @@ Instructions:
 
 
 def build_greeting_context(last_message_time):
-    now = datetime.now(timezone.utc)
 
+    # --------------------------------------------------
+    # 1️⃣ Determine timezone
+    # --------------------------------------------------
+    if customer and customer.get("timezone"):
+        customer_timezone = customer["timezone"]
+    else:
+        # Unknown prospect → assume Mexico City
+        customer_timezone = "America/Mexico_City"
+
+    # --------------------------------------------------
+    # 2️⃣ Convert UTC to customer local time
+    # --------------------------------------------------
+    now = datetime.now(timezone.utc)
+    local_now = now_utc.astimezone(ZoneInfo(customer_timezone))
+  
+    # --------------------------------------------------
+    # 3️⃣ Determine greeting type
+    # --------------------------------------------------
     # Determine greeting type
     if not last_message_time:
         greeting_type = "first_ever_message"
     else:
-        time_diff = now - last_message_time
+        last_local = last_message_time.astimezone(
+            ZoneInfo(customer_timezone)
+        )
+
+        time_diff = local_now - last_local
 
         if time_diff > timedelta(days=4):
             greeting_type = "reconnection"
@@ -133,7 +155,10 @@ def build_greeting_context(last_message_time):
             greeting_type = "new_day"
         else:
             greeting_type = "continuation"
-
+          
+    # --------------------------------------------------
+    # 4️⃣ Determine time of day
+    # --------------------------------------------------
     # Determine time of day
     local_hour = now.hour
 
