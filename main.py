@@ -200,9 +200,9 @@ async def whatsapp_webhook(request: Request):
             base_system_prompt=flow_config["system_prompt"],
             user_message=message["body"],
             context_data=context_data,
+            customer_timezone=customer_timezone,
             last_message_time=last_message_time,
-            distributor_name=greeting_name,
-            customer_timezone=customer_timezone
+            distributor_name=greeting_name
         )
 
     # 🔹 Compose final response (include greeting personalization)
