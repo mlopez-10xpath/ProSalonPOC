@@ -74,9 +74,9 @@ def generate_ai_response(
     base_system_prompt: str,
     user_message: str,
     context_data: str,
+    customer_timezone: str,
     last_message_time=None,
-    distributor_name: str | None = None,
-    customer_timezone: str
+    distributor_name: str | None = None
 ):
     """
     Sends full reasoning task to GPT with dynamic greeting intelligence.
