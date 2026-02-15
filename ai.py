@@ -3,6 +3,7 @@ import os
 from openai import OpenAI
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
+from typing import Optional, Tuple
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -121,26 +122,29 @@ Instructions:
     return response.choices[0].message.content
 
 
-def build_greeting_context(last_message_time,customer_timezone):
+def build_greeting_context(
+    last_message_time: Optional[datetime],
+    customer_timezone: str
+) -> Tuple[str, str]:
+    """
+    Determines:
+    - greeting_type: first_ever_message | reconnection | new_day | continuation
+    - time_of_day: morning | afternoon | evening
+    """
 
     # --------------------------------------------------
-    # 1️⃣ Determine timezone
+    # 1️⃣ Get customer local time
     # --------------------------------------------------
-
-
-    # --------------------------------------------------
-    # 2️⃣ Convert UTC to customer local time
-    # --------------------------------------------------
-    now = datetime.now(timezone.utc)
+    now_utc = datetime.now(timezone.utc)
     local_now = now_utc.astimezone(ZoneInfo(customer_timezone))
-  
+
     # --------------------------------------------------
-    # 3️⃣ Determine greeting type
+    # 2️⃣ Determine greeting type
     # --------------------------------------------------
-    # Determine greeting type
     if not last_message_time:
         greeting_type = "first_ever_message"
     else:
+        # Convert last message time to customer's timezone
         last_local = last_message_time.astimezone(
             ZoneInfo(customer_timezone)
         )
@@ -149,16 +153,15 @@ def build_greeting_context(last_message_time,customer_timezone):
 
         if time_diff > timedelta(days=4):
             greeting_type = "reconnection"
-        elif last_message_time.date() != now.date():
+        elif last_local.date() != local_now.date():
             greeting_type = "new_day"
         else:
             greeting_type = "continuation"
-          
+
     # --------------------------------------------------
-    # 4️⃣ Determine time of day
+    # 3️⃣ Determine time of day
     # --------------------------------------------------
-    # Determine time of day
-    local_hour = now.hour
+    local_hour = local_now.hour
 
     if 5 <= local_hour < 12:
         time_of_day = "morning"
