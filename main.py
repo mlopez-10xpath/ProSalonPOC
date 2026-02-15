@@ -118,6 +118,10 @@ async def whatsapp_webhook(request: Request):
 
     customer_id = customer["customer_id"]  # Make sure your customers table has this
     greeting_name = customer.get("greeting") or message["profile_name"]
+    if customer and customer.get("timezone"):
+        customer_timezone = customer["timezone"]
+    else:
+        customer_timezone = "America/Mexico_City"
     last_message_time = get_last_message_time(customer_id)
 
     logging.info("🟢 Known customer flow")
@@ -197,7 +201,8 @@ async def whatsapp_webhook(request: Request):
             user_message=message["body"],
             context_data=context_data,
             last_message_time=last_message_time,
-            distributor_name=greeting_name
+            distributor_name=greeting_name,
+            customer_timezone=customer_timezone
         )
 
     # 🔹 Compose final response (include greeting personalization)
