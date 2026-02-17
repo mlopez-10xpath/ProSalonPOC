@@ -73,11 +73,7 @@ def price_draft_order_simple(draft_order_id):
 
     total = subtotal
 
-    update_draft_order_totals(
-        draft_order_id=draft_order_id,
-        subtotal=subtotal,
-        total=total
-    )
+    update_draft_order_totals(draft_order_id)
 
     return {
         "subtotal": round(subtotal, 2),
