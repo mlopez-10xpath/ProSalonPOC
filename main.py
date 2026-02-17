@@ -148,8 +148,41 @@ async def whatsapp_webhook(request: Request):
 
     # 🔹 Handle intent (business logic)
     intent = intent_data.get("intent")        
-    flow_config = get_ai_flow(intent)
     
+
+    # ==============================
+    # SIMPLE ORDER INTENT Bypass AI to make deterministic
+    # ==============================
+    if intent == "place_order":
+    
+        from orders import handle_place_order_intent
+    
+        reply_text = handle_place_order_intent(
+            customer_id=customer_id,
+            message_text=message["body"],
+            intent_data=intent_data
+        )
+    
+        save_message(
+            customer_id=customer_id,
+            direction="outbound",
+            body=reply_text,
+            intent=intent
+        )
+    
+        try:
+            twilio_client.messages.create(
+                from_=TWILIO_WHATSAPP_FROM,
+                to=message["from_raw"],
+                body=reply_text
+            )
+        except Exception as e:
+            logging.error(f"❌ Error sending WhatsApp reply: {e}")
+    
+        return PlainTextResponse("", status_code=200)
+
+    
+    flow_config = get_ai_flow(intent)
     if not flow_config:
         system_reply = "No pude procesar tu solicitud."
     else:
