@@ -398,3 +398,55 @@ def update_draft_order_totals(draft_order_id: str):
     )
 
     return response.data[0]
+
+
+def convert_draft_to_order(draft_order_id: str):
+    # Get draft
+    draft_resp = (
+        supabase.table("draft_orders")
+        .select("*")
+        .eq("draft_order_id", draft_order_id)
+        .single()
+        .execute()
+    )
+
+    draft = draft_resp.data
+
+    # Create order header
+    order_resp = (
+        supabase.table("orders")
+        .insert({
+            "customer_id": draft["customer_id"],
+            "subtotal": draft["subtotal"],
+            "discount_total": draft["discount_total"],
+            "final_total": draft["final_total"],
+            "currency": draft["currency"],
+            "status": "confirmed"
+        })
+        .execute()
+    )
+
+    order = order_resp.data[0]
+
+    # Get draft lines
+    lines = get_draft_order_lines(draft_order_id)
+
+    # Insert order lines
+    for line in lines:
+        supabase.table("order_lines").insert({
+            "order_id": order["order_id"],
+            "product_id": line["product_id"],
+            "sku": line["sku"],
+            "quantity": line["quantity"],
+            "unit_price": line["unit_price"],
+            "discount_amount": line["discount_amount"],
+            "final_line_total": line["final_line_total"]
+        }).execute()
+
+    # Close draft
+    supabase.table("draft_orders").update({
+        "status": "converted",
+        "updated_at": datetime.utcnow().isoformat()
+    }).eq("draft_order_id", draft_order_id).execute()
+
+    return order
