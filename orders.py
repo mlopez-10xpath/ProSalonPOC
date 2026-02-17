@@ -1,4 +1,5 @@
 import logging
+import json
 from promotions import calculate_promotions
 
 from db import (
