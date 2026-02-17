@@ -1,24 +1,34 @@
 from promotions import calculate_promotions
 
 
-def price_draft_order(draft_order_id: str):
+def price_draft_order(conn, draft_order_id: str):
 
-    draft_order = load_draft_order(draft_order_id)
-    draft_lines = load_draft_order_lines(draft_order_id)
-    promotions = load_active_promotions()
+    try:
+        conn.autocommit = False
 
-    order_dict = build_order_dict(draft_order, draft_lines)
+        draft_order = load_draft_order(conn, draft_order_id)
+        draft_lines = load_draft_order_lines(conn, draft_order_id)
+        promotions = load_active_promotions(conn)
 
-    discounts = calculate_promotions(order_dict, promotions)
+        order_dict = build_order_dict(draft_order, draft_lines)
 
-    apply_discounts_to_lines(draft_lines, discounts)
+        discounts = calculate_promotions(order_dict, promotions)
 
-    totals = recalculate_totals(draft_lines)
+        apply_discounts_to_lines(draft_lines, discounts)
 
-    update_draft_lines(draft_lines)
-    update_draft_order_totals(draft_order_id, totals)
+        totals = recalculate_totals(draft_lines)
 
-    return totals
+        update_draft_lines(conn, draft_lines)
+        update_draft_order_totals(conn, draft_order_id, totals)
+
+        conn.commit()
+
+        return totals
+
+    except Exception as e:
+        conn.rollback()
+        raise e
+
 
 
 
@@ -78,3 +88,52 @@ def recalculate_totals(draft_lines):
         "discount_total": round(discount_total, 2),
         "final_total": round(final_total, 2)
     }
+
+
+
+
+def update_draft_lines(conn, draft_lines):
+
+    with conn.cursor() as cur:
+
+        for line in draft_lines:
+            cur.execute("""
+                UPDATE draft_order_lines
+                SET
+                    discount_amount = %s,
+                    applied_promotion_id = %s,
+                    line_subtotal = %s,
+                    final_line_total = %s,
+                    updated_at = NOW()
+                WHERE draft_order_line_id = %s
+            """, (
+                line["discount_amount"],
+                line["applied_promotion_id"],
+                line["line_subtotal"],
+                line["final_line_total"],
+                line["draft_order_line_id"]
+            ))
+
+
+
+def update_draft_order_totals(conn, draft_order_id, totals):
+
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE draft_orders
+            SET
+                subtotal = %s,
+                discount_total = %s,
+                final_total = %s,
+                status = 'priced',
+                updated_at = NOW()
+            WHERE draft_order_id = %s
+        """, (
+            totals["subtotal"],
+            totals["discount_total"],
+            totals["final_total"],
+            draft_order_id
+        ))
+
+
+
