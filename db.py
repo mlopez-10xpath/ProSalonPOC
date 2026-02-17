@@ -128,6 +128,24 @@ def get_product_by_name_or_sku(search_term: str):
 
     return response.data[0] if response.data else None
 
+# ==========================================================
+# SupaBase – Strict SKU Lookup
+# ==========================================================
+
+def get_product_by_sku(sku: str):
+    response = (
+        supabase
+        .table("products")
+        .select("*")
+        .eq("sku", sku)
+        .limit(1)
+        .execute()
+    )
+
+    return response.data[0] if response.data else None
+
+
+
 
 # ==========================================================
 # SupaBase – Fetch All Products (for intelligent matching)
@@ -240,3 +258,143 @@ def get_detailed_products():
         }
         for p in products
     ]
+
+# ==========================================================
+# Draft Order Management
+# ==========================================================
+def get_active_draft_order(customer_id: str):
+    response = (
+        supabase.table("draft_orders")
+        .select("*")
+        .eq("customer_id", customer_id)
+        .eq("status", "open")
+        .limit(1)
+        .execute()
+    )
+
+    if response.data:
+        return response.data[0]
+    return None
+
+
+def create_draft_order(customer_id: str, currency: str = "USD"):
+    response = (
+        supabase.table("draft_orders")
+        .insert({
+            "customer_id": customer_id,
+            "status": "open",
+            "subtotal": 0,
+            "discount_total": 0,
+            "final_total": 0,
+            "currency": currency
+        })
+        .execute()
+    )
+
+    return response.data[0]
+
+def get_draft_order_lines(draft_order_id: str):
+    response = (
+        supabase.table("draft_order_lines")
+        .select("*")
+        .eq("draft_order_id", draft_order_id)
+        .execute()
+    )
+
+    return response.data or []
+
+
+from datetime import datetime
+
+def upsert_draft_line(draft_order_id: str, sku: str, quantity: int):
+    # 1️⃣ Get product info
+    product_resp = (
+        supabase.table("products")
+        .select("product_id, sku, price")
+        .eq("sku", sku)
+        .limit(1)
+        .execute()
+    )
+
+    if not product_resp.data:
+        raise Exception(f"Product with SKU {sku} not found")
+
+    product = product_resp.data[0]
+    unit_price = float(product["price"])
+    line_subtotal = unit_price * quantity
+
+    # 2️⃣ Check if line exists
+    line_resp = (
+        supabase.table("draft_order_lines")
+        .select("*")
+        .eq("draft_order_id", draft_order_id)
+        .eq("sku", sku)
+        .limit(1)
+        .execute()
+    )
+
+    now = datetime.utcnow().isoformat()
+
+    if line_resp.data:
+        # Update existing line
+        existing_line = line_resp.data[0]
+        new_quantity = existing_line["quantity"] + quantity
+        new_subtotal = unit_price * new_quantity
+
+        update_resp = (
+            supabase.table("draft_order_lines")
+            .update({
+                "quantity": new_quantity,
+                "line_subtotal": new_subtotal,
+                "final_line_total": new_subtotal,
+                "updated_at": now
+            })
+            .eq("draft_order_line_id", existing_line["draft_order_line_id"])
+            .execute()
+        )
+
+        return update_resp.data[0]
+
+    else:
+        # Insert new line
+        insert_resp = (
+            supabase.table("draft_order_lines")
+            .insert({
+                "draft_order_id": draft_order_id,
+                "product_id": product["product_id"],
+                "sku": sku,
+                "quantity": quantity,
+                "unit_price": unit_price,
+                "line_subtotal": line_subtotal,
+                "applied_promotion_id": None,
+                "discount_amount": 0,
+                "final_line_total": line_subtotal,
+                "created_at": now,
+                "updated_at": now
+            })
+            .execute()
+        )
+
+        return insert_resp.data[0]
+
+
+def update_draft_order_totals(draft_order_id: str):
+    lines = get_draft_order_lines(draft_order_id)
+
+    subtotal = sum(float(line["line_subtotal"]) for line in lines)
+    discount_total = sum(float(line["discount_amount"]) for line in lines)
+    final_total = sum(float(line["final_line_total"]) for line in lines)
+
+    response = (
+        supabase.table("draft_orders")
+        .update({
+            "subtotal": subtotal,
+            "discount_total": discount_total,
+            "final_total": final_total,
+            "updated_at": datetime.utcnow().isoformat()
+        })
+        .eq("draft_order_id", draft_order_id)
+        .execute()
+    )
+
+    return response.data[0]
