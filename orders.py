@@ -22,8 +22,13 @@ def handle_place_order_intent(customer_id, message_text, intent_data):
     draft_order_id = draft["draft_order_id"]
 
     # Extract items from GPT entities
-    items = intent_data.get("entities", {}).get("items", [])
-    logging.info(f"🛒 Extracted items from GPT: {items}")
+    items = intent_data.get("entities", {}).get("products", [])
+
+    if not items:
+        logging.warning("⚠️ No items extracted from GPT.")
+    else:
+        logging.info("🛒 %s item(s) extracted", len(items))
+        logging.info(json.dumps(items, indent=2, ensure_ascii=False))
     
     # If user confirms
     if message_text.lower() in ["confirmar", "finalizar", "si", "sí"]:
