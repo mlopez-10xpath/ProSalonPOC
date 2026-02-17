@@ -1,3 +1,4 @@
+import logging
 from promotions import calculate_promotions
 
 from db import (
@@ -12,7 +13,7 @@ from db import (
 
 
 def handle_place_order_intent(customer_id, message_text, intent_data):
-
+    logging.info("🟢 handle place_order intent")
     draft = get_active_draft_order(customer_id)
 
     if not draft:
@@ -22,7 +23,8 @@ def handle_place_order_intent(customer_id, message_text, intent_data):
 
     # Extract items from GPT entities
     items = intent_data.get("entities", {}).get("items", [])
-
+    logging.info(f"🛒 Extracted items from GPT: {items}")
+    
     # If user confirms
     if message_text.lower() in ["confirmar", "finalizar", "si", "sí"]:
         # order_id = convert_draft_to_order(draft_order_id)
