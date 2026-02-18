@@ -110,8 +110,7 @@ def handle_place_order_intent(customer_id, message_text):
         upsert_draft_line(
             draft_order_id=draft_order_id,
             sku=sku,
-            quantity=quantity,
-            unit_price=product["price"]
+            quantity=quantity
         )
 
     totals = price_draft_order_simple(draft_order_id)
