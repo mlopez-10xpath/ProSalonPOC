@@ -159,8 +159,7 @@ async def whatsapp_webhook(request: Request):
     
         reply_text = handle_place_order_intent(
             customer_id=customer_id,
-            message_text=message["body"],
-            intent_data=intent_data
+            message_text=message["body"]
         )
     
         save_message(
