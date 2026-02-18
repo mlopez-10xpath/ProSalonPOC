@@ -142,23 +142,28 @@ def format_cart_summary(draft_order_id, totals):
 
     lines = get_draft_order_lines(draft_order_id)
 
-    message = "🛒 Tu pedido actual:\n\n"
+    message = "🛒 *Tu pedido actual:*\n\n"
 
     for line in lines:
-        line_total = line["quantity"] * float(line["unit_price"])
+        sku = line["sku"]
+        quantity = line["quantity"]
+        unit_price = float(line["unit_price"])
+        line_total = quantity * unit_price
+
+        product = get_product_by_sku(sku)
+        product_name = product["product"] if product else sku
 
         message += (
-            f"{line['quantity']}x {line['sku']}  "
-            f"${line_total:.2f}\n"
+            f"{quantity}x *{product_name}*\n"
+            f"   ${unit_price:.2f} c/u  |  Total: ${line_total:.2f}\n\n"
         )
 
-    message += "\n"
+    message += "-----------------------------\n"
     message += f"Subtotal: ${totals['subtotal']:.2f}\n"
     message += f"Total: ${totals['total']:.2f}\n\n"
-    message += "Escribe 'confirmar' para finalizar o agrega más productos."
+    message += "Escribe *confirmar* para finalizar o agrega más productos."
 
     return message
-
 
 
 
