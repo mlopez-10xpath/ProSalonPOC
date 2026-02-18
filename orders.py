@@ -18,6 +18,21 @@ from db import (
     get_product_by_sku
 )
 
+def is_cart_query(message_text: str) -> bool:
+    message_text = message_text.lower()
+
+    triggers = [
+        "que tengo",
+        "qué tengo",
+        "mi pedido",
+        "ver pedido",
+        "ver mi pedido",
+        "mostrar pedido",
+        "carrito",
+        "pedido actual"
+    ]
+
+    return any(t in message_text for t in triggers)
 
 
 
@@ -40,6 +55,15 @@ def handle_place_order_intent(customer_id, message_text):
     if message_text.lower().strip() in ["confirmar", "finalizar", "si", "sí"]:
         order_id = 123  # replace with convert_draft_to_order
         return f"✅ Pedido confirmado.\nNúmero de pedido: {order_id}"
+
+    # -------------------------------------------------
+    #  Query for Order
+    # -------------------------------------------------
+    
+    if is_cart_query(message_text):
+        totals = price_draft_order_simple(draft_order_id)
+        return format_cart_summary(draft_order_id, totals)
+    
 
     # -------------------------------------------------
     # 3️⃣ Load product catalog
