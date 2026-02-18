@@ -4,6 +4,7 @@ from openai import OpenAI
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from typing import Optional, Tuple
+import logging
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -172,3 +173,91 @@ def build_greeting_context(
 
     return greeting_type, time_of_day
 
+
+
+def extract_order_products_with_gpt(message_text: str, product_catalog: list):
+    """
+    Uses GPT to extract products from message.
+    Supports:
+    - Multiple products
+    - Misspellings
+    - Ambiguous matches
+    """
+
+    system_prompt = f"""
+You are a product extraction and SKU matching assistant.
+
+Your job:
+- Extract ALL products mentioned in the message.
+- Match each product ONLY to valid SKUs from the provided catalog.
+- Handle misspellings and informal language.
+- Support multiple products in one message.
+- Detect ambiguous products (multiple presentations).
+- NEVER invent SKUs.
+
+You MUST respond in valid JSON only.
+No explanations.
+No extra text.
+
+-------------------------
+AVAILABLE PRODUCTS:
+{json.dumps(product_catalog, ensure_ascii=False)}
+-------------------------
+
+Rules:
+
+1. Default quantity to 1 if not specified.
+2. Interpret numbers written as words (uno, dos, etc).
+3. Only use SKUs from the provided list.
+4. If a product clearly matches ONE SKU → add to "items".
+5. If multiple SKUs could match → add to "ambiguous_items".
+6. If no product matches → ignore it.
+
+Response format:
+
+{{
+  "needs_clarification": boolean,
+  "items": [
+    {{
+      "sku": "VALID_SKU",
+      "quantity": number
+    }}
+  ],
+  "ambiguous_items": [
+    {{
+      "requested_text": "original phrase",
+      "possible_matches": [
+        {{
+          "sku": "VALID_SKU",
+          "name": "Product Name"
+        }}
+      ]
+    }}
+  ]
+}}
+"""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            temperature=0,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message_text}
+            ]
+        )
+
+        content = response.choices[0].message.content.strip()
+
+        logging.info("🤖 Raw GPT extraction response:")
+        logging.info(content)
+
+        return json.loads(content)
+
+    except Exception as e:
+        logging.error(f"❌ GPT extraction error: {e}")
+        return {
+            "needs_clarification": False,
+            "items": [],
+            "ambiguous_items": []
+        }
