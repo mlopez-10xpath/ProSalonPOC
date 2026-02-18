@@ -25,9 +25,10 @@ Rules:
 Possible intents:
 - greeting
 - place_order
+- review_draft_order
 - ask_prices
 - ask_promotions
-- track_order
+- track_placed_order
 - product_info
 - unknown
 
