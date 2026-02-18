@@ -154,7 +154,7 @@ async def whatsapp_webhook(request: Request):
     # SIMPLE ORDER INTENT Bypass AI to make deterministic
     # ==============================
     if intent == "place_order":
-    
+        
         from orders import handle_place_order_intent
     
         reply_text = handle_place_order_intent(
