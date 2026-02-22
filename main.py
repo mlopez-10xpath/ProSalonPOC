@@ -29,7 +29,8 @@ from db import (
     get_ai_flow, 
     get_all_products,
     get_detailed_products,
-    get_active_promotions
+    get_active_promotions,
+    get_recent_conversation_history
 )
 
 # ==========================================================
@@ -128,12 +129,15 @@ async def whatsapp_webhook(request: Request):
 
     # 🔹 Get conversation state
     state = get_conversation_state(customer_id)
-    
+
+    # 🔹 Get recent history (last 5 interactions)
+    conversation_history = get_recent_conversation_history(customer_id)
     
     # 🔹 Analyze intent with ChatGPT
     intent_data = analyze_intent(
         message_text=message["body"],
-        context=state["context"] if state else None
+        context=state["context"] if state else None,
+        history=conversation_history
     )
     
     logging.info(f"🤖 Intent detected: {intent_data}")
