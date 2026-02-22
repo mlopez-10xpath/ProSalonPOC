@@ -569,3 +569,20 @@ def remove_draft_line_quantity(draft_order_id: str, sku: str, quantity: int):
             .execute()
 
         return "updated"
+
+# ==========================================================
+# Delete Draft Order Line Quantity
+# ==========================================================
+def delete_draft_line(draft_order_id: str, sku: str):
+    """
+    Deletes entire draft line for a given SKU.
+    """
+
+    supabase.table("draft_order_lines")\
+        .delete()\
+        .eq("draft_order_id", draft_order_id)\
+        .eq("sku", sku)\
+        .execute()
+
+    return True
+
