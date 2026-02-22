@@ -20,7 +20,13 @@ from db import (
     remove_draft_line_quantity
 )
 
-def detect_cart_operation(message_text: str) -> str:
+def detect_cart_operation(message_text: str) -> tuple[str, bool]:
+    """
+    Returns:
+    - operation: "add" or "remove"
+    - remove_all: True if user clearly wants all quantity removed
+    """
+
     text = message_text.lower()
 
     remove_keywords = [
@@ -33,10 +39,20 @@ def detect_cart_operation(message_text: str) -> str:
         "saca",
     ]
 
-    if any(word in text for word in remove_keywords):
-        return "remove"
+    remove_all_keywords = [
+        "todos",
+        "todas",
+        "todo el",
+        "todo los",
+    ]
 
-    return "add"
+    is_remove = any(word in text for word in remove_keywords)
+    is_remove_all = any(word in text for word in remove_all_keywords)
+
+    if is_remove:
+        return "remove", is_remove_all
+
+    return "add", False
 
 
 def is_cart_query(message_text: str) -> bool:
@@ -288,7 +304,7 @@ def handle_modify_cart(customer_id: str, message_text: str):
 
     draft_order_id = draft["draft_order_id"]
 
-    operation = detect_cart_operation(message_text)
+    operation, remove_all_flag = detect_cart_operation(message_text)
 
     # Load products for GPT matching
     products = get_all_products()
@@ -312,21 +328,31 @@ def handle_modify_cart(customer_id: str, message_text: str):
         return "No encontré productos válidos para modificar."
 
     for item in items:
-        sku = item.get("sku")
-        quantity = item.get("quantity", 1)
+    sku = item.get("sku")
+    quantity = item.get("quantity")
 
-        if operation == "remove":
+    if operation == "remove":
+
+        # 🔥 If remove-all language OR no quantity detected → remove full line
+        if remove_all_flag or not quantity:
+            delete_draft_line(
+                draft_order_id=draft_order_id,
+                sku=sku
+            )
+        else:
             remove_draft_line_quantity(
                 draft_order_id=draft_order_id,
                 sku=sku,
                 quantity=quantity
             )
-        else:
-            upsert_draft_line(
-                draft_order_id=draft_order_id,
-                sku=sku,
-                quantity=quantity
-            )
+
+    else:
+        upsert_draft_line(
+            draft_order_id=draft_order_id,
+            sku=sku,
+            quantity=quantity or 1
+        )
+
 
     update_draft_order_totals(draft_order_id)
 
