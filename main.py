@@ -30,7 +30,9 @@ from db import (
     get_all_products,
     get_detailed_products,
     get_active_promotions,
-    get_recent_conversation_history
+    get_recent_conversation_history,
+    get_pending_customer_message,
+    clear_pending_customer_message
 )
 from orders import (
     handle_place_order_intent,
@@ -141,6 +143,18 @@ async def whatsapp_webhook(request: Request):
 
     # 🔹 Get recent history (last 5 interactions)
     conversation_history = get_recent_conversation_history(customer_id)
+
+    # ------------------------------------------------------
+    # STEP 3A – Deliver Pending Customer Message (if any)
+    # ------------------------------------------------------
+    
+    pending_message = get_pending_customer_message(customer_id)
+    
+    if pending_message:
+        logging.info("📨 Delivering pending customer message")
+    
+        # Clear it immediately so it is only sent once
+        clear_pending_customer_message(customer_id)
     
     # 🔹 Analyze intent with ChatGPT
     intent_data = analyze_intent(
@@ -186,6 +200,9 @@ async def whatsapp_webhook(request: Request):
         else:
             reply_text = handler(customer_id)
 
+        if pending_message:
+            reply_text = f"{pending_message}\n\n{reply_text}"
+        
         # Update state
         upsert_conversation_state(
             customer_id=customer_id,
@@ -276,6 +293,9 @@ async def whatsapp_webhook(request: Request):
 
     # 🔹 Compose final response (include greeting personalization)
     reply_text = system_reply 
+
+    if pending_message:
+        reply_text = f"{pending_message}\n\n{reply_text}"
 
     # 🔹 Update conversation state
     upsert_conversation_state(
