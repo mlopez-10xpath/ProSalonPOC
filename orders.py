@@ -328,30 +328,30 @@ def handle_modify_cart(customer_id: str, message_text: str):
         return "No encontré productos válidos para modificar."
 
     for item in items:
-    sku = item.get("sku")
-    quantity = item.get("quantity")
+        sku = item.get("sku")
+        quantity = item.get("quantity")
 
-    if operation == "remove":
-
-        # 🔥 If remove-all language OR no quantity detected → remove full line
-        if remove_all_flag or not quantity:
-            delete_draft_line(
-                draft_order_id=draft_order_id,
-                sku=sku
-            )
+        if operation == "remove":
+    
+            # 🔥 If remove-all language OR no quantity detected → remove full line
+            if remove_all_flag or not quantity:
+                delete_draft_line(
+                    draft_order_id=draft_order_id,
+                    sku=sku
+                )
+            else:
+                remove_draft_line_quantity(
+                    draft_order_id=draft_order_id,
+                    sku=sku,
+                    quantity=quantity
+                )
+    
         else:
-            remove_draft_line_quantity(
+            upsert_draft_line(
                 draft_order_id=draft_order_id,
                 sku=sku,
-                quantity=quantity
+                quantity=quantity or 1
             )
-
-    else:
-        upsert_draft_line(
-            draft_order_id=draft_order_id,
-            sku=sku,
-            quantity=quantity or 1
-        )
 
 
     update_draft_order_totals(draft_order_id)
