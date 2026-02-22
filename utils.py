@@ -19,3 +19,22 @@ def normalize_text(text: str) -> str:
     text = re.sub(r"\s+", " ", text).strip()
 
     return text
+
+
+def split_message(text: str, max_length: int = 1500):
+    """
+    Splits text into chunks safe for WhatsApp.
+    """
+    chunks = []
+    
+    while len(text) > max_length:
+        split_index = text.rfind("\n", 0, max_length)
+        if split_index == -1:
+            split_index = max_length
+        
+        chunks.append(text[:split_index])
+        text = text[split_index:].strip()
+    
+    chunks.append(text)
+    
+    return chunks
