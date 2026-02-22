@@ -15,6 +15,7 @@ import json
 # ==========================================================
 # User defined functions
 # ==========================================================
+from utils import split_message
 from ai import ( 
     analyze_intent,
     generate_ai_response
@@ -219,12 +220,15 @@ async def whatsapp_webhook(request: Request):
             intent=intent
         )
 
+        chunks = split_message(reply_text)
+
         # Send WhatsApp message
         try:
+            for chunk in chunks:
             twilio_client.messages.create(
                 from_=TWILIO_WHATSAPP_FROM,
                 to=message["from_raw"],
-                body=reply_text
+                body=chunk
             )
             logging.info("✅ Deterministic reply sent")
 
@@ -313,15 +317,18 @@ async def whatsapp_webhook(request: Request):
         intent=intent_data.get("intent")
     )
 
+    chunks = split_message(reply_text)
+    
     # ------------------------------------------------------
     # Send WhatsApp response (ONLY ONCE)
     # ------------------------------------------------------
     try:
-        twilio_client.messages.create(
-            from_=TWILIO_WHATSAPP_FROM,
-            to=message["from_raw"],   # must include whatsapp:
-            body=reply_text
-        )
+        for chunk in chunks:
+            twilio_client.messages.create(
+                from_=TWILIO_WHATSAPP_FROM,
+                to=message["from_raw"],
+                body=chunk
+            )
         logging.info("✅ WhatsApp reply sent")
 
     except Exception as e:
