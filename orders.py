@@ -16,7 +16,8 @@ from db import (
     update_draft_order_totals,
     convert_draft_to_order,
     get_product_by_sku,
-    cancel_draft_order
+    cancel_draft_order,
+    remove_draft_line_quantity
 )
 
 def detect_cart_operation(message_text: str) -> str:
