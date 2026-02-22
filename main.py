@@ -32,6 +32,14 @@ from db import (
     get_active_promotions,
     get_recent_conversation_history
 )
+from orders import (
+    handle_place_order_intent,
+    handle_add_to_cart,
+    handle_view_cart,
+    handle_modify_cart,
+    handle_confirm_order,
+    handle_cancel_order,
+)
 
 # ==========================================================
 # App & logging
@@ -154,35 +162,59 @@ async def whatsapp_webhook(request: Request):
     intent = intent_data.get("intent")        
     
 
-    # ==============================
-    # SIMPLE ORDER INTENT Bypass AI to make deterministic
-    # ==============================
-    if intent == "place_order":
-        
-        from orders import handle_place_order_intent
-    
-        reply_text = handle_place_order_intent(
+    # ======================================================
+    # 🧠 DETERMINISTIC ENGINE (Cart & Order Management)
+    # ======================================================
+
+    deterministic_intents = {
+        "place_order": handle_place_order_intent,
+        "add_to_cart": handle_add_to_cart,
+        "view_cart": handle_view_cart,
+        "modify_cart": handle_modify_cart,
+        "confirm_order": handle_confirm_order,
+        "cancel_order": handle_cancel_order,
+    }
+
+    if intent in deterministic_intents:
+
+        handler = deterministic_intents[intent]
+
+        # Some handlers require message_text, some don't
+        if intent in ["add_to_cart", "modify_cart", "place_order"]:
+            reply_text = handler(customer_id, message["body"])
+        else:
+            reply_text = handler(customer_id)
+
+        # Update state
+        upsert_conversation_state(
             customer_id=customer_id,
-            message_text=message["body"]
+            current_flow=intent,
+            current_step=None,
+            context=intent_data.get("entities", {})
         )
-    
+
+        # Save outbound message
         save_message(
             customer_id=customer_id,
             direction="outbound",
             body=reply_text,
             intent=intent
         )
-    
+
+        # Send WhatsApp message
         try:
             twilio_client.messages.create(
                 from_=TWILIO_WHATSAPP_FROM,
                 to=message["from_raw"],
                 body=reply_text
             )
+            logging.info("✅ Deterministic reply sent")
+
         except Exception as e:
             logging.error(f"❌ Error sending WhatsApp reply: {e}")
-    
+
         return PlainTextResponse("", status_code=200)
+
 
     
     flow_config = get_ai_flow(intent)
