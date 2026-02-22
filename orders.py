@@ -19,6 +19,25 @@ from db import (
     cancel_draft_order
 )
 
+def detect_cart_operation(message_text: str) -> str:
+    text = message_text.lower()
+
+    remove_keywords = [
+        "quita",
+        "quitar",
+        "elimina",
+        "eliminar",
+        "borra",
+        "remueve",
+        "saca",
+    ]
+
+    if any(word in text for word in remove_keywords):
+        return "remove"
+
+    return "add"
+
+
 def is_cart_query(message_text: str) -> bool:
     message_text = message_text.lower()
 
@@ -259,16 +278,18 @@ def handle_add_to_cart(customer_id, message_text):
 # ==========================================================
 # Modify Draft Order
 # ==========================================================
-def handle_modify_cart(customer_id, message_text):
+def handle_modify_cart(customer_id: str, message_text: str):
     logging.info("🟢 handle_modify_cart")
 
     draft = get_active_draft_order(customer_id)
-
     if not draft:
         return "No tienes un pedido activo."
 
     draft_order_id = draft["draft_order_id"]
 
+    operation = detect_cart_operation(message_text)
+
+    # Load products for GPT matching
     products = get_all_products()
 
     product_catalog = [
@@ -287,21 +308,27 @@ def handle_modify_cart(customer_id, message_text):
     items = extraction.get("items", [])
 
     if not items:
-        return "No entendí qué producto deseas modificar."
+        return "No encontré productos válidos para modificar."
 
     for item in items:
         sku = item.get("sku")
-        quantity = item.get("quantity")
+        quantity = item.get("quantity", 1)
 
-        if quantity is None or quantity <= 0:
-            remove_draft_line(draft_order_id, sku)
+        if operation == "remove":
+            remove_draft_line_quantity(
+                draft_order_id=draft_order_id,
+                sku=sku,
+                quantity=quantity
+            )
         else:
-            upsert_draft_line(draft_order_id, sku, quantity)
+            upsert_draft_line(
+                draft_order_id=draft_order_id,
+                sku=sku,
+                quantity=quantity
+            )
+
+    update_draft_order_totals(draft_order_id)
 
     totals = price_draft_order_simple(draft_order_id)
 
     return format_cart_summary(draft_order_id, totals)
-
-
-
-
