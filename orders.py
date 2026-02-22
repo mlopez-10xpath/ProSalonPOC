@@ -15,7 +15,8 @@ from db import (
     get_draft_order_lines,
     update_draft_order_totals,
     convert_draft_to_order,
-    get_product_by_sku
+    get_product_by_sku,
+    cancel_draft_order
 )
 
 def is_cart_query(message_text: str) -> bool:
@@ -142,7 +143,26 @@ def handle_place_order_intent(customer_id, message_text):
     return format_cart_summary(draft_order_id, totals)
 
 
+# ==========================================================
+# View Cart
+# ==========================================================
+def handle_view_cart(customer_id):
+    logging.info("🟢 handle_view_cart")
 
+    draft = get_active_draft_order(customer_id)
+
+    if not draft:
+        return "No tienes un pedido activo."
+
+    draft_order_id = draft["draft_order_id"]
+
+    totals = price_draft_order_simple(draft_order_id)
+
+    return format_cart_summary(draft_order_id, totals)
+
+# ==========================================================
+# Price Draft Order Simple
+# ==========================================================
 def price_draft_order_simple(draft_order_id):
 
     lines = get_draft_order_lines(draft_order_id)
@@ -162,6 +182,9 @@ def price_draft_order_simple(draft_order_id):
         "total": round(total, 2)
     }
 
+# ==========================================================
+# Cart Summary 
+# ==========================================================
 def format_cart_summary(draft_order_id, totals):
 
     lines = get_draft_order_lines(draft_order_id)
@@ -189,7 +212,168 @@ def format_cart_summary(draft_order_id, totals):
 
     return message
 
+# ==========================================================
+# Confirm Order --- NEEDS COMPLETITION
+# ==========================================================
+def handle_confirm_order(customer_id):
+    logging.info("🟢 handle_confirm_order")
 
+    draft = get_active_draft_order(customer_id)
+
+    if not draft:
+        return "No tienes un pedido activo para confirmar."
+
+    draft_order_id = draft["draft_order_id"]
+
+    # order_id = convert_draft_to_order(draft_order_id)
+    order_id = 123
+
+    return (
+        f"✅ Pedido confirmado.\n"
+        f"Número de pedido: {order_id}"
+    )
+
+# ==========================================================
+# Draft Order Cancelation
+# ==========================================================
+def handle_cancel_order(customer_id):
+    logging.info("🟢 handle_cancel_order")
+
+    draft = get_active_draft_order(customer_id)
+
+    if not draft:
+        return "No tienes un pedido activo."
+
+    cancelled = cancel_draft_order(draft["draft_order_id"])
+
+    if not cancelled:
+        return "Hubo un problema cancelando el pedido."
+
+    return "🛑 Tu pedido fue cancelado."
+
+# ==========================================================
+# Add to Daft Order 
+# ==========================================================
+def handle_add_to_cart(customer_id, message_text):
+    logging.info("🟢 handle_add_to_cart")
+
+    draft = get_active_draft_order(customer_id)
+
+    if not draft:
+        draft = create_draft_order(customer_id)
+
+    draft_order_id = draft["draft_order_id"]
+
+    # Load product catalog
+    products = get_all_products()
+
+    product_catalog = [
+        {
+            "sku": p["sku"],
+            "name": p["product"]
+        }
+        for p in products
+    ]
+
+    # GPT extraction
+    extraction = extract_order_products_with_gpt(
+        message_text=message_text,
+        product_catalog=product_catalog
+    )
+
+    logging.info("🛒 GPT Extraction Result:")
+    logging.info(json.dumps(extraction, indent=2, ensure_ascii=False))
+
+    items = extraction.get("items", [])
+    ambiguous_items = extraction.get("ambiguous_items", [])
+
+    # Handle ambiguous
+    if ambiguous_items:
+        reply = "Necesito un poco más de información 👇\n\n"
+
+        for product in ambiguous_items:
+            reply += f"Para *{product['requested_text']}* tengo estas opciones:\n"
+            for option in product["possible_matches"]:
+                reply += f"- {option['name']} ({option['sku']})\n"
+            reply += "\n"
+
+        reply += "¿Cuál prefieres?"
+
+        return reply
+
+    if not items:
+        return (
+            "No encontré productos válidos en tu mensaje.\n"
+            "Ejemplo:\n"
+            "2 AVY-ARG-SHP-250"
+        )
+
+    # Add items
+    for item in items:
+        sku = item.get("sku")
+        quantity = item.get("quantity", 1)
+
+        product = get_product_by_sku(sku)
+        if not product:
+            logging.warning(f"⚠️ SKU not found in DB: {sku}")
+            continue
+
+        upsert_draft_line(
+            draft_order_id=draft_order_id,
+            sku=sku,
+            quantity=quantity
+        )
+
+    totals = price_draft_order_simple(draft_order_id)
+
+    return format_cart_summary(draft_order_id, totals)
+
+
+# ==========================================================
+# Modify Draft Order
+# ==========================================================
+def handle_modify_cart(customer_id, message_text):
+    logging.info("🟢 handle_modify_cart")
+
+    draft = get_active_draft_order(customer_id)
+
+    if not draft:
+        return "No tienes un pedido activo."
+
+    draft_order_id = draft["draft_order_id"]
+
+    products = get_all_products()
+
+    product_catalog = [
+        {
+            "sku": p["sku"],
+            "name": p["product"]
+        }
+        for p in products
+    ]
+
+    extraction = extract_order_products_with_gpt(
+        message_text=message_text,
+        product_catalog=product_catalog
+    )
+
+    items = extraction.get("items", [])
+
+    if not items:
+        return "No entendí qué producto deseas modificar."
+
+    for item in items:
+        sku = item.get("sku")
+        quantity = item.get("quantity")
+
+        if quantity is None or quantity <= 0:
+            remove_draft_line(draft_order_id, sku)
+        else:
+            update_draft_line(draft_order_id, sku, quantity)
+
+    totals = price_draft_order_simple(draft_order_id)
+
+    return format_cart_summary(draft_order_id, totals)
 
 
 
