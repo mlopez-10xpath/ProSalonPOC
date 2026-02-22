@@ -17,7 +17,8 @@ from db import (
     convert_draft_to_order,
     get_product_by_sku,
     cancel_draft_order,
-    remove_draft_line_quantity
+    remove_draft_line_quantity,
+    delete_draft_line
 )
 
 def detect_cart_operation(message_text: str) -> tuple[str, bool]:
