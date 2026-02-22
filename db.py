@@ -518,3 +518,54 @@ def cancel_draft_order(draft_order_id: str):
     except Exception:
         logging.exception("Error cancelling draft order")
         return None
+
+
+# ==========================================================
+# Remove Draft Order Line Quantity
+# ==========================================================
+def remove_draft_line_quantity(draft_order_id: str, sku: str, quantity: int):
+    """
+    Reduces quantity of a draft line.
+    If quantity reaches 0 or below → delete line.
+    """
+
+    line_resp = (
+        supabase.table("draft_order_lines")
+        .select("*")
+        .eq("draft_order_id", draft_order_id)
+        .eq("sku", sku)
+        .limit(1)
+        .execute()
+    )
+
+    if not line_resp.data:
+        return None
+
+    line = line_resp.data[0]
+    current_quantity = line["quantity"]
+
+    new_quantity = current_quantity - quantity
+
+    if new_quantity <= 0:
+        # Delete line completely
+        supabase.table("draft_order_lines")\
+            .delete()\
+            .eq("draft_order_line_id", line["draft_order_line_id"])\
+            .execute()
+        return "deleted"
+
+    else:
+        unit_price = float(line["unit_price"])
+        new_subtotal = unit_price * new_quantity
+
+        supabase.table("draft_order_lines")\
+            .update({
+                "quantity": new_quantity,
+                "line_subtotal": new_subtotal,
+                "final_line_total": new_subtotal,
+                "updated_at": datetime.utcnow().isoformat()
+            })\
+            .eq("draft_order_line_id", line["draft_order_line_id"])\
+            .execute()
+
+        return "updated"
