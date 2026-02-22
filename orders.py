@@ -375,3 +375,97 @@ def handle_modify_cart(customer_id: str, message_text: str):
 
     return f"✅ Listo, ya se modificó tu pedido.\n{cart_summary}"
 
+
+
+def handle_cart_intent(customer_id: str, message_text: str):
+    """
+    Unified handler for:
+    - place_order
+    - add_to_cart
+    """
+
+    logging.info("🟢 handle_cart_intent")
+
+    draft = get_active_draft_order(customer_id)
+
+    # 🔹 Extract products from message
+    products = get_all_products()
+    product_catalog = [
+        {"sku": p["sku"], "name": p["product"]}
+        for p in products
+    ]
+
+    extraction = extract_order_products_with_gpt(
+        message_text=message_text,
+        product_catalog=product_catalog
+    )
+
+    items = extraction.get("items", [])
+
+    has_products = len(items) > 0
+
+    # =====================================================
+    # SCENARIO 1: NO draft + NO products
+    # =====================================================
+    if not draft and not has_products:
+        return (
+            "No tienes un pedido activo actualmente.\n\n"
+            "Puedes escribir algo como:\n"
+            "hacer pedido 2 AVY-ARG-SHP-250\n"
+            "o\n"
+            "ordenar 2 Shampoo Ialurónico de 500 ml"
+        )
+
+    # =====================================================
+    # SCENARIO 2: NO draft + YES products
+    # =====================================================
+    if not draft and has_products:
+
+        draft = create_draft_order(customer_id)
+        draft_order_id = draft["draft_order_id"]
+
+        for item in items:
+            upsert_draft_line(
+                draft_order_id=draft_order_id,
+                sku=item["sku"],
+                quantity=item.get("quantity", 1)
+            )
+
+        update_draft_order_totals(draft_order_id)
+        totals = price_draft_order_simple(draft_order_id)
+        cart_summary = format_cart_summary(draft_order_id, totals)
+
+        return f"✅ Listo, ya creé tu pedido.\n\n{cart_summary}"
+
+    # =====================================================
+    # SCENARIO 3: YES draft + NO products
+    # =====================================================
+    if draft and not has_products:
+        return (
+            "Ya tienes un pedido en proceso 🛒\n\n"
+            "Puedes:\n"
+            "- Agregar productos escribiendo el nombre o SKU\n"
+            "- Ver tu pedido escribiendo 'ver pedido'\n"
+            "- Confirmar con 'confirmar'\n"
+            "- Cancelar con 'cancelar'"
+        )
+
+    # =====================================================
+    # SCENARIO 4: YES draft + YES products
+    # =====================================================
+    if draft and has_products:
+
+        draft_order_id = draft["draft_order_id"]
+
+        for item in items:
+            upsert_draft_line(
+                draft_order_id=draft_order_id,
+                sku=item["sku"],
+                quantity=item.get("quantity", 1)
+            )
+
+        update_draft_order_totals(draft_order_id)
+        totals = price_draft_order_simple(draft_order_id)
+        cart_summary = format_cart_summary(draft_order_id, totals)
+
+        return f"✅ Listo, ya se agregó a tu pedido.\n\n{cart_summary}"
