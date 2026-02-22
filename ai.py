@@ -40,6 +40,13 @@ INTENT DEFINITIONS
 
 CART (Draft Order — before confirmation):
 
+- place_order:
+  User wants to create a new darft order.
+  Examples:
+  - "quiero hacer un pedido"
+  - "quiero ordenar"
+  - "si, quiero un pedido"
+
 - add_to_cart:
   User wants to add products to their current draft order.
   Examples:
