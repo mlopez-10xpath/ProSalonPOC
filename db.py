@@ -586,3 +586,39 @@ def delete_draft_line(draft_order_id: str, sku: str):
 
     return True
 
+# ==========================================================
+# Pending Customer Message
+# ==========================================================
+
+def get_pending_customer_message(customer_id: str):
+    """
+    Returns pending message if active, else None
+    """
+    response = supabase.table("customers") \
+        .select("pending_message, pending_message_active") \
+        .eq("customer_id", customer_id) \
+        .single() \
+        .execute()
+
+    data = response.data
+
+    if not data:
+        return None
+
+    if data.get("pending_message_active") and data.get("pending_message"):
+        return data["pending_message"]
+
+    return None
+
+
+def clear_pending_customer_message(customer_id: str):
+    """
+    Clears the pending message after delivery
+    """
+    supabase.table("customers") \
+        .update({
+            "pending_message": None,
+            "pending_message_active": False
+        }) \
+        .eq("customer_id", customer_id) \
+        .execute()
