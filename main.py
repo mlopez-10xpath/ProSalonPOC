@@ -39,6 +39,7 @@ from orders import (
     handle_modify_cart,
     handle_confirm_order,
     handle_cancel_order,
+    handle_cart_intent
 )
 
 # ==========================================================
