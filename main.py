@@ -168,8 +168,8 @@ async def whatsapp_webhook(request: Request):
     # ======================================================
 
     deterministic_intents = {
-        "place_order": handle_place_order_intent,
-        "add_to_cart": handle_add_to_cart,
+        "place_order": handle_cart_intent,
+        "add_to_cart": handle_cart_intent,
         "view_cart": handle_view_cart,
         "modify_cart": handle_modify_cart,
         "confirm_order": handle_confirm_order,
