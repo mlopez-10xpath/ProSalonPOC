@@ -225,11 +225,11 @@ async def whatsapp_webhook(request: Request):
         # Send WhatsApp message
         try:
             for chunk in chunks:
-            twilio_client.messages.create(
-                from_=TWILIO_WHATSAPP_FROM,
-                to=message["from_raw"],
-                body=chunk
-            )
+                twilio_client.messages.create(
+                    from_=TWILIO_WHATSAPP_FROM,
+                    to=message["from_raw"],
+                    body=chunk
+                )
             logging.info("✅ Deterministic reply sent")
 
         except Exception as e:
