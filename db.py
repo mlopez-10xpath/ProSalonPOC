@@ -489,3 +489,32 @@ def get_recent_conversation_history(customer_id: str, limit_pairs: int = 5):
 
     return formatted_history
 
+# ==========================================================
+# Cancel Draft Order
+# ==========================================================
+def cancel_draft_order(draft_order_id: str):
+    """
+    Cancels an open draft order by setting status to 'cancelled'.
+    Returns updated draft or None if not found.
+    """
+
+    try:
+        response = (
+            supabase.table("draft_orders")
+            .update({
+                "status": "cancelled",
+                "updated_at": datetime.utcnow().isoformat()
+            })
+            .eq("draft_order_id", draft_order_id)
+            .eq("status", "open")  # ensure only open drafts are cancelled
+            .execute()
+        )
+
+        if response.data:
+            return response.data[0]
+
+        return None
+
+    except Exception:
+        logging.exception("Error cancelling draft order")
+        return None
