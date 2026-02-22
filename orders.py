@@ -116,7 +116,16 @@ def handle_view_cart(customer_id):
     draft = get_active_draft_order(customer_id)
 
     if not draft:
-        return "No tienes un pedido activo."
+        return (
+            "No tienes un pedido activo actualmente\n."
+            "Puedes escribir hacer pedido seguido \n"
+            "del nombre del producto o el SKU.\n"
+            "Ejemplo:\n"
+            "hacer pedido 2 AVY-ARG-SHP-250\n"
+            "o tambien algo como\n"
+            "ordenar 2 Shampoo Ialurónico de 500 ml"
+        )
+        
 
     draft_order_id = draft["draft_order_id"]
 
