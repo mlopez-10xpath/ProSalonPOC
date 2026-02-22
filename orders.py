@@ -38,109 +38,36 @@ def is_cart_query(message_text: str) -> bool:
 
 
 def handle_place_order_intent(customer_id, message_text):
+    """
+    Called when user says something like:
+    'quiero hacer un pedido'
+    """
+
     logging.info("🟢 handle_place_order_intent")
 
-    # -------------------------------------------------
-    # 1️⃣ Get or create draft
-    # -------------------------------------------------
     draft = get_active_draft_order(customer_id)
 
-    if not draft:
-        draft = create_draft_order(customer_id)
+    if draft:
+        return (
+            "Ya tienes un pedido en proceso 🛒\n\n"
+            "Puedes:\n"
+            "- Agregar productos escribiendo el nombre o SKU\n"
+            "- Ver tu pedido escribiendo 'ver pedido'\n"
+            "- Confirmar con 'confirmar'\n"
+            "- Cancelar con 'cancelar'"
+        )
 
-    draft_order_id = draft["draft_order_id"]
+    create_draft_order(customer_id)
 
-    # -------------------------------------------------
-    # 2️⃣ Confirmation shortcut
-    # -------------------------------------------------
-    if message_text.lower().strip() in ["confirmar", "finalizar", "si", "sí"]:
-        order_id = 123  # replace with convert_draft_to_order
-        return f"✅ Pedido confirmado.\nNúmero de pedido: {order_id}"
-
-    # -------------------------------------------------
-    #  Query for Order
-    # -------------------------------------------------
-    
-    if is_cart_query(message_text):
-        totals = price_draft_order_simple(draft_order_id)
-        return format_cart_summary(draft_order_id, totals)
-    
-
-    # -------------------------------------------------
-    # 3️⃣ Load product catalog
-    # -------------------------------------------------
-    products = get_all_products()
-
-    product_catalog = [
-        {
-            "sku": p["sku"],
-            "name": p["product"]
-        }
-        for p in products
-    ]
-
-    # -------------------------------------------------
-    # 4️⃣ Extract products using GPT
-    # -------------------------------------------------
-    extraction = extract_order_products_with_gpt(
-        message_text=message_text,
-        product_catalog=product_catalog
+    return (
+        "Perfecto 👍 Empecemos tu pedido.\n\n"
+        "Puedes escribir el nombre del producto o el SKU.\n"
+        "Ejemplo:\n"
+        "2 AVY-ARG-SHP-250\n"
+        "o tambien algo como\n"
+        "2 Shampoo Ialurónico de 500 ml"
     )
 
-    logging.info("🛒 GPT Extraction Result:")
-    logging.info(json.dumps(extraction, indent=2, ensure_ascii=False))
-
-    items = extraction.get("items", [])
-    ambiguous_items = extraction.get("ambiguous_items", [])
-
-    # -------------------------------------------------
-    # 5️⃣ Handle ambiguous products
-    # -------------------------------------------------
-    if ambiguous_items:
-        reply = "Necesito un poco más de información 👇\n\n"
-
-        for product in ambiguous_items:
-            reply += f"Para *{product['requested_text']}* tengo estas opciones:\n"
-            for option in product["possible_matches"]:
-                reply += f"- {option['name']} ({option['sku']})\n"
-            reply += "\n"
-
-        reply += "¿Cuál prefieres?"
-
-        return reply
-
-    # -------------------------------------------------
-    # 6️⃣ No valid items
-    # -------------------------------------------------
-    if not items:
-        logging.warning("⚠️ No valid items extracted.")
-        return (
-            "No encontré productos válidos en tu mensaje.\n"
-            "Puedes escribir por ejemplo:\n"
-            "2 AVY-ARG-SHP-250"
-        )
-
-    # -------------------------------------------------
-    # 7️⃣ Add items to draft
-    # -------------------------------------------------
-    for item in items:
-        sku = item.get("sku")
-        quantity = item.get("quantity", 1)
-
-        product = get_product_by_sku(sku)
-        if not product:
-            logging.warning(f"⚠️ SKU not found in DB: {sku}")
-            continue
-
-        upsert_draft_line(
-            draft_order_id=draft_order_id,
-            sku=sku,
-            quantity=quantity
-        )
-
-    totals = price_draft_order_simple(draft_order_id)
-
-    return format_cart_summary(draft_order_id, totals)
 
 
 # ==========================================================
