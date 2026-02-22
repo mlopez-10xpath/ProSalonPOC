@@ -166,7 +166,7 @@ def format_cart_summary(draft_order_id, totals):
 
         message += (
             f"{quantity}x *{product_name}*\n"
-            f"   ${unit_price:.2f} c/u  |  Total: ${line_total:.2f}\n\n"
+            f"   ${unit_price:.2f} c/u  |  Total: ${line_total:.2f}\n"
         )
 
     message += "-----------------------------\n"
