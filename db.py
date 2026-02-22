@@ -450,3 +450,42 @@ def convert_draft_to_order(draft_order_id: str):
     }).eq("draft_order_id", draft_order_id).execute()
 
     return order
+
+# ==========================================================
+# Conversation History Management
+# ==========================================================
+
+def get_recent_conversation_history(customer_id: str, limit_pairs: int = 5):
+    """
+    Returns the last N complete interactions (inbound + outbound).
+    Default = 5 pairs (10 messages).
+    """
+
+    limit_messages = limit_pairs * 2
+
+    response = (
+        supabase.table("messages")
+        .select("direction, body")
+        .eq("customer_id", customer_id)
+        .order("created_at", desc=True)
+        .limit(limit_messages)
+        .execute()
+    )
+
+    messages = response.data or []
+
+    # Reverse to chronological order
+    messages.reverse()
+
+    # Normalize roles for GPT
+    formatted_history = []
+
+    for msg in messages:
+        role = "user" if msg["direction"] == "inbound" else "assistant"
+        formatted_history.append({
+            "role": role,
+            "content": msg["body"]
+        })
+
+    return formatted_history
+
