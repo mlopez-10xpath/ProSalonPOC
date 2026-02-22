@@ -290,7 +290,10 @@ def handle_add_to_cart(customer_id, message_text):
 
     totals = price_draft_order_simple(draft_order_id)
 
-    return format_cart_summary(draft_order_id, totals)
+    cart_summary = format_cart_summary(draft_order_id, totals)
+
+    return f"✅ Listo, ya se agregó a tu pedido.\n{cart_summary}"
+
 
 
 # ==========================================================
@@ -359,4 +362,7 @@ def handle_modify_cart(customer_id: str, message_text: str):
 
     totals = price_draft_order_simple(draft_order_id)
 
-    return format_cart_summary(draft_order_id, totals)
+    cart_summary = format_cart_summary(draft_order_id, totals)
+
+    return f"✅ Listo, ya se modificó tu pedido.\n{cart_summary}"
+
