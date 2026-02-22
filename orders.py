@@ -296,7 +296,7 @@ def handle_modify_cart(customer_id, message_text):
         if quantity is None or quantity <= 0:
             remove_draft_line(draft_order_id, sku)
         else:
-            update_draft_line(draft_order_id, sku, quantity)
+            upsert_draft_line(draft_order_id, sku, quantity)
 
     totals = price_draft_order_simple(draft_order_id)
 
