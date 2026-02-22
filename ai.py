@@ -16,21 +16,105 @@ Your task:
 - Extract relevant entities
 - Decide the next system action
 
+You will receive a JSON object with:
+- message: the current user message
+- context: internal state if available
+- recent_conversation: last conversation turns (user and assistant)
+Use recent_conversation to determine intent more accurately.
+
 Rules:
 - Incomming messages could probably be in Mexican Spanish
+- If the user is asking about the CURRENT draft order, use view_cart.
+- If the user is asking about shipping or delivery status, use track_order.
+- If unsure between add_to_cart and modify_cart:
+    - If product not yet mentioned in conversation → add_to_cart
+    - If referring to existing cart item → modify_cart
 - Return ONLY valid JSON
 - No explanations
 - If unsure, intent = "unknown"
 
 Possible intents:
-- greeting
-- place_order
-- review_draft_order
-- ask_prices
-- ask_promotions
-- track_placed_order
-- product_info
-- unknown
+--------------------------------------
+INTENT DEFINITIONS
+--------------------------------------
+
+CART (Draft Order — before confirmation):
+
+- add_to_cart:
+  User wants to add products to their current draft order.
+  Examples:
+  - "agrega shampoo platino"
+  - "quiero 2 geles"
+  - "añade el de 500 ml"
+
+- view_cart:
+  User is asking what products are currently in their draft order.
+  Examples:
+  - "qué tengo en mi pedido"
+  - "muéstrame mi carrito"
+  - "cuál es mi pedido actual"
+  - "ver pedido"
+
+- modify_cart:
+  User wants to remove or change quantities in their draft order.
+  Examples:
+  - "quita el shampoo"
+  - "cambia a 3 el de 500"
+  - "elimina el platino"
+
+- confirm_order:
+  User wants to finalize and confirm the draft order.
+  Examples:
+  - "confirmar"
+  - "finalizar pedido"
+  - "sí, confírmalo"
+
+- cancel_order:
+  User wants to cancel the current draft order.
+  Examples:
+  - "cancelar"
+  - "cancel"
+  - "anular pedido"
+
+POST-CHECKOUT:
+
+- track_order:
+  User is asking about the status of an already confirmed order.
+  Examples:
+  - "dónde está mi pedido"
+  - "ya lo enviaron?"
+  - "estatus de mi orden"
+
+GENERAL:
+
+- ask_prices:
+  User is asking about product prices.
+  Examples:
+  - "cuánto cuesta el de 500"
+  - "precio del shampoo platino"
+
+- ask_promotions:
+  User is asking about discounts or promotions.
+  Examples:
+  - "tienen promociones?"
+  - "hay ofertas?"
+
+- product_info:
+  User wants details about a product.
+  Examples:
+  - "para qué sirve el shampoo ialurónico"
+  - "qué ingredientes tiene"
+
+- greeting:
+  Greetings or small talk.
+  Examples:
+  - "hola"
+  - "buenos días"
+
+- unknown:
+  Anything that does not clearly match the above.
+
+--------------------------------------
 
 Entities:
 - product_name: string or null
@@ -45,19 +129,33 @@ JSON format:
   "next_action": string
 }
 """
+# ==========================================================
+# GPT -  Analyze Intent
+# ==========================================================
+def analyze_intent(
+    message_text: str,
+    context: dict | None = None,
+    history: list | None = None
+) -> dict:
 
-def analyze_intent(message_text: str, context: dict | None = None) -> dict:
     payload = {
         "message": message_text,
-        "context": context or {}
+        "context": context or {},
+        "recent_conversation": history or []
     }
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         temperature=0.2,
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": json.dumps(payload)}
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT
+            },
+            {
+                "role": "user",
+                "content": json.dumps(payload, ensure_ascii=False)
+            }
         ]
     )
 
@@ -71,7 +169,9 @@ def analyze_intent(message_text: str, context: dict | None = None) -> dict:
             "next_action": "fallback"
         }
 
-
+# ==========================================================
+# GPT - Generate AI Response
+# ==========================================================
 def generate_ai_response(
     base_system_prompt: str,
     user_message: str,
@@ -123,7 +223,9 @@ Instructions:
 
     return response.choices[0].message.content
 
-
+# ==========================================================
+# GPT - Build Greeting Context
+# ==========================================================
 def build_greeting_context(
     last_message_time: Optional[datetime],
     customer_timezone: str
