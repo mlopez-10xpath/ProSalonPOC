@@ -181,7 +181,7 @@ def format_cart_summary(draft_order_id, totals):
     message += "-----------------------------\n"
     message += f"Subtotal: ${totals['subtotal']:.2f}\n"
     message += f"Total: ${totals['total']:.2f}\n\n"
-    message += "Escribe *confirmar* para finalizar o agrega más productos."
+    message += "Escribe *confirmar* o *cancelar* para finalizar o agrega más productos."
 
     return message
 
