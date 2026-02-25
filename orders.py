@@ -163,6 +163,41 @@ def format_cart_summary(draft_order_id, totals):
 
     lines = get_draft_order_lines(draft_order_id)
 
+    if not lines:
+        return "🛒 Tu carrito está vacío."
+
+    # ------------------------------------------------------
+    # 🧠 1️⃣ Build enriched cart
+    # ------------------------------------------------------
+    cart_lines = get_cart_with_product_data(draft_order_id)
+
+    # ------------------------------------------------------
+    # 🧠 2️⃣ Load active promotions
+    # ------------------------------------------------------
+    promotions = get_active_promotions()  # you should already have this
+
+    # ------------------------------------------------------
+    # 🧠 3️⃣ Evaluate promotions
+    # ------------------------------------------------------
+    promotion_result = evaluate_promotions(cart_lines, promotions)
+
+    total_discount = promotion_result.get("total_discount", 0.0)
+
+    # ------------------------------------------------------
+    # 🧮 4️⃣ Recalculate totals safely
+    # ------------------------------------------------------
+    subtotal = totals.get("subtotal", 0.0)
+    final_total = subtotal - total_discount
+
+    # Update totals dict (so nothing else breaks)
+    totals["total_discount"] = total_discount
+    totals["total"] = final_total
+    totals["applied_promotions"] = promotion_result.get("applied", [])
+    totals["upsell_suggestions"] = promotion_result.get("upsell", [])
+
+    # ------------------------------------------------------
+    # 🛒 5️⃣ Build message
+    # ------------------------------------------------------
     message = "🛒 *Tu pedido actual:*\n\n"
 
     for line in lines:
@@ -176,15 +211,39 @@ def format_cart_summary(draft_order_id, totals):
 
         message += (
             f"{quantity}x *{product_name}*\n"
-            f"   ${unit_price:.2f} c/u  |  Total: ${line_total:.2f}\n"
+            f"   ${unit_price:.2f} c/u  |  Total: ${line_total:.2f}\n\n"
         )
 
     message += "-----------------------------\n"
-    message += f"Subtotal: ${totals['subtotal']:.2f}\n"
-    message += f"Total: ${totals['total']:.2f}\n\n"
-    message += "Escribe *confirmar* o *cancelar* para finalizar o agrega más productos."
+    message += f"Subtotal: ${subtotal:.2f}\n"
+
+    # ------------------------------------------------------
+    # 🎉 Promotions display
+    # ------------------------------------------------------
+    if totals["applied_promotions"]:
+        message += "\n🎉 *Promociones aplicadas:*\n"
+        for promo in totals["applied_promotions"]:
+            message += f"• {promo['name']} (-${promo['discount']:.2f})\n"
+
+        message += f"\nDescuento total: -${total_discount:.2f}\n"
+
+    message += f"\n*Total: ${final_total:.2f}*\n"
+
+    # ------------------------------------------------------
+    # 💡 Upsell
+    # ------------------------------------------------------
+    if totals["upsell_suggestions"]:
+        message += "\n💡 *Ofertas disponibles:*\n"
+        for suggestion in totals["upsell_suggestions"]:
+            message += f"• {suggestion['message']}\n"
+
+    message += (
+        "\nEscribe *confirmar* o *cancelar* para finalizar "
+        "o agrega más productos."
+    )
 
     return message
+
 
 # ==========================================================
 # Confirm Order --- NEEDS COMPLETITION
