@@ -622,3 +622,29 @@ def clear_pending_customer_message(customer_id: str):
         }) \
         .eq("customer_id", customer_id) \
         .execute()
+
+
+# ==========================================================
+# Get products by ids
+# ==========================================================
+def get_products_by_ids(product_ids: list):
+    """
+    Fetch multiple products by product_id.
+    """
+
+    if not product_ids:
+        return []
+
+    unique_ids = list(set(product_ids))
+
+    response = (
+        supabase.table("products")
+        .select("product_id, sku, name, category_id, line_id, price")
+        .in_("product_id", unique_ids)
+        .execute()
+    )
+
+    if not response.data:
+        logging.warning("No products found for IDs: %s", unique_ids)
+
+    return response.data or []
