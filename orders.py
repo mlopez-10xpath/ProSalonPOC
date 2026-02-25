@@ -20,7 +20,7 @@ from db import (
     remove_draft_line_quantity,
     delete_draft_line,
     get_products_by_ids,
-    ger_active_promotions
+    get_active_promotions
 )
 
 def detect_cart_operation(message_text: str) -> tuple[str, bool]:
