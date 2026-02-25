@@ -639,7 +639,7 @@ def get_products_by_ids(product_ids: list):
 
     response = (
         supabase.table("products")
-        .select("product_id, sku, name, category_id, line_id, price")
+        .select("product_id, sku, product, category_id, line_id, price")
         .in_("product_id", unique_ids)
         .execute()
     )
