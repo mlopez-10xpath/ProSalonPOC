@@ -18,7 +18,8 @@ from db import (
     get_product_by_sku,
     cancel_draft_order,
     remove_draft_line_quantity,
-    delete_draft_line
+    delete_draft_line,
+    get_products_by_ids
 )
 
 def detect_cart_operation(message_text: str) -> tuple[str, bool]:
@@ -469,3 +470,288 @@ def handle_cart_intent(customer_id: str, message_text: str):
         cart_summary = format_cart_summary(draft_order_id, totals)
 
         return f"✅ Listo, ya se agregó a tu pedido.\n\n{cart_summary}"
+
+
+
+# ==========================================================
+# Get cart with product data
+# ==========================================================
+
+def get_cart_with_product_data(draft_order_id: str):
+    """
+    Returns enriched cart lines including product metadata
+    needed for promotion evaluation.
+
+    Output structure:
+    [
+        {
+            "product_id": str,
+            "sku": str,
+            "name": str,
+            "category_id": str,
+            "line_id": str,
+            "quantity": int,
+            "unit_price": float,
+            "line_subtotal": float
+        }
+    ]
+    """
+
+    # -----------------------------------------------------
+    # 1️⃣ Fetch draft order lines
+    # -----------------------------------------------------
+    lines = get_draft_order_lines(draft_order_id)
+
+    if not lines:
+        return []
+
+    # -----------------------------------------------------
+    # 2️⃣ Fetch related product metadata in bulk
+    # -----------------------------------------------------
+    product_ids = list({line["product_id"] for line in lines})
+
+    products = get_products_by_ids(product_ids)
+
+    if not products:
+        logging.warning(
+            "No product metadata found for draft_order_id=%s",
+            draft_order_id
+        )
+        return []
+
+    product_map = {p["product_id"]: p for p in products}
+
+    # -----------------------------------------------------
+    # 3️⃣ Build enriched cart structure
+    # -----------------------------------------------------
+    enriched_cart = []
+
+    for line in lines:
+        product = product_map.get(line["product_id"])
+
+        if not product:
+            logging.warning(
+                "Missing product metadata for product_id=%s",
+                line["product_id"]
+            )
+            continue
+
+        quantity = int(line["quantity"])
+        unit_price = float(line["unit_price"])
+
+        enriched_cart.append({
+            "product_id": line["product_id"],
+            "sku": line["sku"],
+            "name": product.get("name"),
+            "category_id": product.get("category_id"),
+            "line_id": product.get("line_id"),
+            "quantity": quantity,
+            "unit_price": unit_price,
+            "line_subtotal": quantity * unit_price
+        })
+
+    return enriched_cart
+
+
+
+
+# ==========================================================
+# Evaluate promotions
+# ==========================================================
+
+def evaluate_promotions(cart_lines: list, promotions: list):
+    """
+    Evaluates active promotions against enriched cart_lines.
+
+    cart_lines structure:
+    [
+        {
+            "product_id": str,
+            "sku": str,
+            "name": str,
+            "category_id": str,
+            "line_id": str,
+            "quantity": int,
+            "unit_price": float,
+            "line_subtotal": float
+        }
+    ]
+
+    Returns:
+    {
+        "applied": [ ... ],
+        "upsell": [ ... ],
+        "total_discount": float
+    }
+    """
+
+    applied = []
+    upsell = []
+    total_discount = 0.0
+
+    if not cart_lines:
+        return {
+            "applied": [],
+            "upsell": [],
+            "total_discount": 0.0
+        }
+
+    # Sort by priority (higher first)
+    promotions_sorted = sorted(
+        promotions,
+        key=lambda x: x.get("priority_weight", 0),
+        reverse=True
+    )
+
+    for promo in promotions_sorted:
+
+        if not promo.get("is_active"):
+            continue
+
+        try:
+            rules = json.loads(promo.get("rules", "{}"))
+            reward = json.loads(promo.get("reward", "{}"))
+        except Exception:
+            continue  # skip malformed promotions safely
+
+        promo_name = promo.get("name")
+
+        # =====================================================
+        # 1️⃣ CATEGORY OR LINE PERCENTAGE PROMOTIONS
+        # =====================================================
+        if rules.get("scope") in ["category", "line"]:
+
+            scope_key = "category_id" if rules["scope"] == "category" else "line_id"
+            eligible_ids = rules.get("category_ids") or rules.get("line_ids") or []
+
+            matching_lines = [
+                line for line in cart_lines
+                if line.get(scope_key) in eligible_ids
+            ]
+
+            if matching_lines:
+
+                subtotal = sum(line["line_subtotal"] for line in matching_lines)
+
+                if reward.get("type") == "percentage":
+                    discount = subtotal * (reward.get("value", 0) / 100)
+
+                    # Optional discount cap
+                    cap = promo.get("max_discount_cap")
+                    if cap:
+                        discount = min(discount, float(cap))
+
+                    total_discount += discount
+
+                    applied.append({
+                        "promotion_id": promo.get("promotion_id"),
+                        "name": promo_name,
+                        "discount": round(discount, 2)
+                    })
+
+            else:
+                # Basic upsell suggestion
+                upsell.append({
+                    "promotion_id": promo.get("promotion_id"),
+                    "message": f"Agrega productos incluidos en '{promo_name}' y obtén {reward.get('value')}% de descuento."
+                })
+
+        # =====================================================
+        # 2️⃣ BUY X GET Y (BROCHAS TYPE)
+        # =====================================================
+        if rules.get("scope") == "product_group":
+
+            eligible_skus = rules.get("product_skus", [])
+            buy_qty = rules.get("buy_quantity", 0)
+            reward_qty = rules.get("reward_quantity", 0)
+
+            matching_lines = [
+                line for line in cart_lines
+                if line["sku"] in eligible_skus
+            ]
+
+            total_qty = sum(line["quantity"] for line in matching_lines)
+
+            if total_qty >= buy_qty + reward_qty and reward.get("type") == "percentage":
+
+                # Apply discount to cheapest eligible items
+                expanded_units = []
+
+                for line in matching_lines:
+                    for _ in range(line["quantity"]):
+                        expanded_units.append(line["unit_price"])
+
+                expanded_units.sort()  # cheapest first
+
+                eligible_rewards = total_qty // (buy_qty + reward_qty)
+
+                discount = 0.0
+                for i in range(min(eligible_rewards * reward_qty, len(expanded_units))):
+                    discount += expanded_units[i] * (reward.get("value", 0) / 100)
+
+                total_discount += discount
+
+                applied.append({
+                    "promotion_id": promo.get("promotion_id"),
+                    "name": promo_name,
+                    "discount": round(discount, 2)
+                })
+
+            else:
+                missing = buy_qty - total_qty
+                if missing > 0:
+                    upsell.append({
+                        "promotion_id": promo.get("promotion_id"),
+                        "message": f"Agrega {missing} producto(s) más para activar '{promo_name}'."
+                    })
+                elif total_qty >= buy_qty and total_qty < buy_qty + reward_qty:
+                    upsell.append({
+                        "promotion_id": promo.get("promotion_id"),
+                        "message": f"Agrega {reward_qty} producto adicional para obtener el beneficio de '{promo_name}'."
+                    })
+
+        # =====================================================
+        # 3️⃣ TRIGGER + REWARD (ARGÁN TYPE)
+        # =====================================================
+        if rules.get("trigger_products"):
+
+            trigger_products = rules.get("trigger_products", [])
+            reward_products = rules.get("reward_products", [])
+
+            has_trigger = any(
+                line["sku"] in trigger_products
+                for line in cart_lines
+            )
+
+            reward_lines = [
+                line for line in cart_lines
+                if line["sku"] in reward_products
+            ]
+
+            if has_trigger and reward_lines and reward.get("type") == "percentage":
+
+                discount = sum(
+                    line["line_subtotal"] * (reward.get("value", 0) / 100)
+                    for line in reward_lines
+                )
+
+                total_discount += discount
+
+                applied.append({
+                    "promotion_id": promo.get("promotion_id"),
+                    "name": promo_name,
+                    "discount": round(discount, 2)
+                })
+
+            elif has_trigger and not reward_lines:
+                upsell.append({
+                    "promotion_id": promo.get("promotion_id"),
+                    "message": f"Agrega el producto complementario y obtén {reward.get('value')}% de descuento en '{promo_name}'."
+                })
+
+    return {
+        "applied": applied,
+        "upsell": upsell,
+        "total_discount": round(total_discount, 2)
+    }
+
